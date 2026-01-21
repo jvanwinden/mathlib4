@@ -135,6 +135,19 @@ theorem ae_le_of_ae_lt {β : Type*} [Preorder β] {f g : α → β} (h : ∀ᵐ 
     f ≤ᵐ[μ] g :=
   h.mono fun _ ↦ le_of_lt
 
+theorem ae_le_of_forall_gt_ae_le [LinearOrder β] [TopologicalSpace β]
+    [OrderTopology β] [DenselyOrdered β] [TopologicalSpace.SeparableSpace β]
+    {a : β} {f : α → β} (h : (∀ b, a < b → ∀ᵐ x ∂μ, f x ≤ b)) : (∀ᵐ x ∂μ, f x ≤ a) := by
+  obtain ⟨Q,cQ,dQ⟩ := TopologicalSpace.exists_countable_dense β
+  suffices h : (∀ b : Q, ∀ᵐ x ∂μ, a < b → f x ≤ b) by
+    haveI : (Countable Q) := cQ
+    simp_rw [← ae_all_iff] at h
+    filter_upwards [h] with x hx
+    contrapose! hx
+    rcases Dense.exists_between dQ hx with ⟨c,cQ,cb⟩
+    aesop
+  aesop
+
 @[simp]
 theorem ae_eq_empty : s =ᵐ[μ] (∅ : Set α) ↔ μ s = 0 :=
   eventuallyEq_empty.trans <| by simp only [ae_iff, Classical.not_not, setOf_mem_eq]
