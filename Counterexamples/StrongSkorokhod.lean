@@ -22,10 +22,14 @@ lemma ae_eq_iff_map_meas_diag_comp_zero
     {X Y : Ω → α} (hX : Measurable X) (hY : Measurable Y) :
     X =ᵐ[μ] Y ↔ (μ.map (fun ω => (X ω, Y ω)) (Set.diagonal α)ᶜ = 0) := by
   refine ⟨fun h ↦ ?_, fun h ↦ ?_⟩
-  · sorry
+  · have : (fun ω ↦ (X ω, Y ω)) =ᵐ[μ] (fun ω ↦ (X ω, X ω)) :=
+      by filter_upwards [h] using by aesop
+    rw [Measure.map_congr this]
+    rw [Measure.map_apply (by measurability) (by measurability), Set.preimage_compl]
+    rw [← mem_ae_iff, ← eventually_mem_set]
+    exact Eventually.of_forall (by aesop)
   · rw [Measure.map_apply (by measurability) (by measurability)] at h
     simpa
-
 
 abbrev V := ℝ
 instance : MeasurableSpace V := inferInstance
