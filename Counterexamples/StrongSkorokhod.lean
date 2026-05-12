@@ -6,6 +6,7 @@ import Mathlib.MeasureTheory.Measure.ProbabilityMeasure
 import Mathlib.MeasureTheory.Function.ConvergenceInDistribution
 import Mathlib.MeasureTheory.Measure.Typeclasses.ZeroOne
 import Mathlib.MeasureTheory.Measure.Tight
+import Mathlib.MeasureTheory.Measure.Prokhorov
 
 open MeasureTheory ProbabilityTheory Filter
 
@@ -92,7 +93,7 @@ instance : MeasurableSpace V := inferInstance
 variable (ρ : Measure V) [IsProbabilityMeasure ρ]
 
 -- θ is the infinite product measure of ρ
-def Ω := (ℕ → V)
+abbrev Ω := (ℕ → V)
 instance : MeasurableSpace Ω := .pi
 def θ : Measure Ω := MeasureTheory.Measure.infinitePi (fun _ ↦ ρ)
 
@@ -120,6 +121,34 @@ theorem tendsto_μ_θ : Tendsto
     (fun n ↦ (μ ρ n).toProbabilityMeasure) atTop
     (nhds ((θ ρ).prod ρ).toProbabilityMeasure) := by
   -- use subsequence argument and uniqueness of limits
+  apply tendsto_of_subseq_tendsto
+  let S := (Set.range (fun n ↦ (μ ρ n).toProbabilityMeasure))
+
+  intro m hm
+  have : IsTightMeasureSet {x : Measure (U × V) | ∃ μ ∈ S, μ = x} := by
+    apply tight_of_marginals_tight
+    · apply IsTightMeasureSet.subset (T := {θ ρ})
+      · apply isTightMeasureSet_singleton
+      · simp only [Set.mem_range, exists_exists_eq_and, Set.subset_singleton_iff, Set.mem_setOf_eq,
+        forall_exists_index, forall_apply_eq_imp_iff]
+        intro
+        sorry
+        -- rw [μ, Measure.map_map (by measurability) (by measurability)]
+        -- simp [Function.comp_def]
+    · apply IsTightMeasureSet.subset (T := {ρ})
+      · apply isTightMeasureSet_singleton
+      · simp
+        intro a ha
+        sorry
+        -- rw [μ, Measure.map_map (by measurability) (by measurability)]
+        -- apply Measure.infinitePi_map_eval
+  have := isCompact_closure_of_isTightMeasureSet this
+  have := this.tendsto_subseq (x := fun n ↦ (μ ρ (m n)).toProbabilityMeasure) (fun n ↦ subset_closure (by aesop))
+  obtain ⟨κ, hκ, ms, -, hms⟩ := this
+  use ms
+  convert hms
+  simp_rw [Function.comp_def] at hms
+  -- test the limit on cylinder functions
   sorry
 
 -- Theorem 2: If there exist random variables A' and B' n, such that
