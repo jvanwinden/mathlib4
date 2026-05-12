@@ -5,180 +5,195 @@ import Mathlib.Probability.Independence.InfinitePi
 import Mathlib.MeasureTheory.Measure.ProbabilityMeasure
 import Mathlib.MeasureTheory.Function.ConvergenceInDistribution
 import Mathlib.MeasureTheory.Measure.Typeclasses.ZeroOne
+import Mathlib.MeasureTheory.Measure.Tight
 
 open MeasureTheory ProbabilityTheory Filter
 
-lemma ae_eq_iff_map_meas_diag_comp_zero
-    {Ω : Type*} {α : Type*} [MeasurableSpace Ω] [MeasurableSpace α] [MeasurableEq α] {μ : Measure Ω}
-    {X Y : Ω → α} (hX : Measurable X) (hY : Measurable Y) :
-    X =ᵐ[μ] Y ↔ (μ.map (fun ω => (X ω, Y ω)) (Set.diagonal α)ᶜ = 0) := by
-  refine ⟨fun h ↦ ?_, fun h ↦ ?_⟩
-  · have : (fun ω ↦ (X ω, Y ω)) =ᵐ[μ] (fun ω ↦ (X ω, X ω)) :=
-      by filter_upwards [h] using by aesop
-    rw [Measure.map_congr this]
-    rw [Measure.map_apply (by measurability) (by measurability), Set.preimage_compl]
-    rw [← mem_ae_iff, ← eventually_mem_set]
-    exact Eventually.of_forall (by aesop)
-  · rw [Measure.map_apply (by measurability) (by measurability)] at h
-    simpa
+noncomputable section
+
+section Auxiliary
 
 lemma meas_eq_iff_prob_meas_eq {Ω : Type*} [MeasurableSpace Ω]
     {μ : Measure Ω} {ν : Measure Ω} (hμ : IsProbabilityMeasure μ) (hν : IsProbabilityMeasure ν) :
     μ = ν ↔ (⟨μ, hμ⟩ : ProbabilityMeasure Ω) = ⟨ν, hν⟩ := by simp
 
-lemma hasLaw_limit
+def MeasureTheory.Measure.toProbabilityMeasure
+    {Ω : Type*} [MeasurableSpace Ω] (μ : Measure Ω)
+    [IsProbabilityMeasure μ] :
+  ProbabilityMeasure Ω := ⟨μ, inferInstance⟩
+
+-- Identify the law of the limit of a sequence of random variables
+lemma hasLaw_of_tendsto_tendsto
     {Ω : Type*} {α : Type*} [MeasurableSpace Ω] [MeasurableSpace α]
-    [SeminormedAddCommGroup α] [SecondCountableTopology α] [BorelSpace α] {μ : Measure Ω}
-    {ν : Measure α} (hμ : IsProbabilityMeasure μ) (hν : IsProbabilityMeasure ν)
-    {X : ℕ → Ω → α} {Y : Ω → α} (hmX : ∀ n, Measurable (X n)) (hmY : Measurable Y)
-    (h_tt : ∀ᵐ ω ∂μ, Tendsto (fun n ↦ X n ω) atTop (nhds (Y ω)))
-    (h_law : ∀ n, HasLaw (X n) ν μ) : HasLaw Y ν μ := by
+    [SeminormedAddCommGroup α] [SecondCountableTopology α] [BorelSpace α]
+    {μ : Measure Ω} [IsProbabilityMeasure μ]
+    {ν : ℕ → Measure α} [hν : ∀ n, IsProbabilityMeasure (ν n)]
+    {ν_lim : Measure α} [hν_lim : IsProbabilityMeasure ν_lim]
+    {X : ℕ → Ω → α} {X_lim : Ω → α}
+    (h_law : ∀ n, HasLaw (X n) (ν n) μ)
+    (h_tt_ae : ∀ᵐ ω ∂μ, Tendsto (fun n ↦ X n ω) atTop (nhds (X_lim ω)))
+    (h_tt_law : Tendsto (fun n ↦ (ν n).toProbabilityMeasure) atTop
+      (nhds ν_lim.toProbabilityMeasure)) :
+    HasLaw X_lim ν_lim μ := by
+  have : ∀ n, AEMeasurable (X n) μ := fun n ↦ (h_law n).aemeasurable
+  have : AEMeasurable X_lim μ :=
+    aemeasurable_of_tendsto_metrizable_ae' (by measurability) h_tt_ae
   refine ⟨by measurability, ?_⟩
-  rw [meas_eq_iff_prob_meas_eq (?_) (by aesop)]
+  rw [meas_eq_iff_prob_meas_eq (?_) (inferInstance)]
   swap; · refine Measure.isProbabilityMeasure_map ?_; measurability
-  have := ((tendstoInMeasure_of_tendsto_ae (μ := μ) (by measurability) h_tt).tendstoInDistribution
+  have := ((tendstoInMeasure_of_tendsto_ae (μ := μ) (by measurability) h_tt_ae).tendstoInDistribution
     (by measurability)).tendsto
   apply tendsto_nhds_unique this
-  apply EventuallyEq.tendsto
-  refine Eventually.of_forall (fun n ↦ ?_)
-  apply Subtype.ext
+  convert h_tt_law with n
   apply (h_law n).map_eq
 
+lemma tight_of_marginals_tight
+    {α β : Type*} [MeasurableSpace α] [MeasurableSpace β]
+    [TopologicalSpace α] [TopologicalSpace β] [OpensMeasurableSpace α]
+    (μ : Set (Measure (α × β)))
+    (hμ_1 : IsTightMeasureSet {ν.map (fun x ↦ x.1) | ν ∈ μ})
+    (hμ_2 : IsTightMeasureSet {ν.map (fun x ↦ x.2) | ν ∈ μ}) :
+    IsTightMeasureSet μ := by
+  rw [IsTightMeasureSet_iff_exists_isCompact_measure_compl_le] at *
+  intro ε hε
+  specialize hμ_1 (ε / 2) (by aesop)
+  specialize hμ_2 (ε / 2) (by aesop)
+  obtain ⟨K1, hKc_1, hKm_le_1⟩ := hμ_1
+  obtain ⟨K2, hKc_2, hKm_le_2⟩ := hμ_2
+  refine ⟨K1 ×ˢ K2, ?_, ?_⟩
+  · exact IsCompact.prod hKc_1 hKc_2
+  intro κ hκ_mem
+  simp only [Set.mem_setOf_eq, forall_exists_index, and_imp, forall_apply_eq_imp_iff₂] at *
+  specialize hKm_le_1 κ hκ_mem
+  specialize hKm_le_2 κ hκ_mem
+  have : (K1 ×ˢ K2)ᶜ ⊆ (K1 ×ˢ Set.univ)ᶜ ∪ (Set.univ ×ˢ K2)ᶜ := by
+    grind
+  grw [measure_mono this, measure_union_le]
+  rw [← ENNReal.add_halves (a := ε)]
+  apply add_le_add
+  · convert hKm_le_1
+    rw [Measure.map_apply]
+    · congr; aesop
+    · measurability
+    · sorry -- measurability
+  · convert hKm_le_2
+    rw [Measure.map_apply]
+    · congr; aesop
+    · measurability
+    · sorry -- measurability
+
+end Auxiliary
+
+section StrongSkorokhod
+
+-- We assume we are given some probability measure ρ on V = ℝ
 abbrev V := ℝ
 instance : MeasurableSpace V := inferInstance
-
 variable (ρ : Measure V) [IsProbabilityMeasure ρ]
 
-noncomputable section
-
-
-
--- our probability space, consisting of infinite copies of V
+-- θ is the infinite product measure of ρ
 def Ω := (ℕ → V)
-
-abbrev U₁ := (ℕ → V)
-abbrev U₂ := V
-
--- product σ-algebra
 instance : MeasurableSpace Ω := .pi
--- product measure
-noncomputable def θ : Measure Ω := MeasureTheory.Measure.infinitePi (fun _ ↦ ρ)
+def θ : Measure Ω := MeasureTheory.Measure.infinitePi (fun _ ↦ ρ)
 
-instance : IsProbabilityMeasure (θ ρ) := by apply Measure.instIsProbabilityMeasureForallInfinitePi
+-- Abbreviations for spaces and random variables
+abbrev U := (ℕ → V)
+abbrev A : Ω → U := id
+abbrev B (n : ℕ) (ω : Ω) : V := ω n
 
--- the random varialbe A, which is just the identity
-abbrev A : Ω → U₁ := id
--- the random varialbe B n is the n-th component of A
-abbrev B (n : ℕ) (ω : Ω) : U₂ := ω n
+-- μ is the sequence of measures which will form the counterexample
+def μ (n : ℕ) : Measure (U × V) := (θ ρ).map (f := fun ω ↦ (A ω, B n ω))
 
--- the sequence of measures μ n which will form the contradiction
-example n : Measurable (fun ω ↦ (A ω, B n ω)) := by measurability
+-- θ, θ × ρ, and μ n are probability measures
+instance : IsProbabilityMeasure (θ ρ) := by
+  apply Measure.instIsProbabilityMeasureForallInfinitePi
 
-def μ n := (θ ρ).map (fun ω ↦ (A ω, B n ω))
+instance : IsProbabilityMeasure ((θ ρ).prod ρ) :=
+  Measure.prod.instIsProbabilityMeasure (θ ρ) ρ
 
-lemma hasLaw_proj_A (n : ℕ) : HasLaw (fun ω ↦ A ω n) ρ (θ ρ) := by
+instance (n : ℕ) : IsProbabilityMeasure (μ ρ n) := by
+  apply Measure.isProbabilityMeasure_map
+  measurability
+
+-- Theorem 1: The sequence n ↦ μ n converges weakly to θ × ρ
+theorem tendsto_μ_θ : Tendsto
+    (fun n ↦ (μ ρ n).toProbabilityMeasure) atTop
+    (nhds ((θ ρ).prod ρ).toProbabilityMeasure) := by
+  -- use subsequence argument and uniqueness of limits
   sorry
 
-
--- theorem: μ n converges weakly to θ
-
--- theorem: if the strong skorokhod theorem conclusion holds, then ρ is a dirac measure
+-- Theorem 2: If there exist random variables A' and B' n, such that
+-- (A', B' n) has law μ n and B' n converges almost surely,
+-- then ρ must be a Dirac measure.
+-- TODO: show that convergence along a sequence suffices for the conclusion
 theorem measure_const_of_strong_skorokhod
-    (Ω' : Type*) [MeasurableSpace Ω'] {P' : Measure Ω'} [IsProbabilityMeasure P']
-    (A' : Ω' → U₁)
-    (B' : ℕ → Ω' → U₂)
-    (B'_lim : Ω' → U₂)
-    (hmeas : Measurable A' ∧ ∀ n, Measurable (B' n) ∧ Measurable B'_lim)
-    (h_law : ∀ n, IdentDistrib (fun ω ↦ (A ω, B n ω)) (fun ω' ↦ (A' ω', B' n ω')) (θ ρ) P')
-    (h_conv : ∀ᵐ ω' ∂P', Tendsto (fun n ↦ B' n ω') atTop (nhds (B'_lim ω'))) :
+    {Ω' : Type*} [MeasurableSpace Ω'] {P' : Measure Ω'} [IsProbabilityMeasure P']
+    {A' : Ω' → U} {B' : ℕ → Ω' → V} {B'_lim : Ω' → V}
+    (h_law : ∀ n, HasLaw (fun ω' ↦ (A' ω', B' n ω')) (μ ρ n) P')
+    (h_tt : ∀ᵐ ω' ∂P', Tendsto (fun n ↦ B' n ω') atTop (nhds (B'_lim ω'))) :
     ∃ x : V, ρ = Measure.dirac x := by
-  suffices IsZeroOneMeasure ρ by
-    apply IsZeroOneMeasure.exists_eq_dirac
-  -- -- the n-th component of A' agrees a.s. with B' n
-  -- have A'_eq_B' : ∀ n, ∀ᵐ ω' ∂P', A' ω' n = B' n ω' := by
-  --   intro n
-  --   rw [← Filter.EventuallyEq]
-  --   rw [ae_eq_iff_map_meas_diag_comp_zero (by measurability) (by measurability)]
-  --   have : IdentDistrib (fun ω ↦ (A ω n, B n ω)) (fun ω' ↦ (A' ω' n, B' n ω')) (θ ρ) P' :=
-  --     (h_law n).comp (u := fun (u, v) ↦ ((u n, v))) (by measurability)
-  --   rw [← this.map_eq, ← ae_eq_iff_map_meas_diag_comp_zero (by measurability) (by measurability)]
-  --   simp
-  -- let G₁ : ProbabilityMeasure (U₂ × U₂) := ⟨Measure.prod ρ ρ, inferInstance⟩
-  -- let G₂ : ProbabilityMeasure (U₂ × U₂) := ⟨ρ.map (fun x ↦ (x,x)), ?_⟩
-  -- swap; · refine Measure.isProbabilityMeasure_map ?_; measurability
-  -- let G n : ProbabilityMeasure (U₂ × U₂) := ⟨P'.map ((fun ω' ↦ (B' n ω', B' (n + 1) ω'))), ?_⟩
-  -- swap; · refine Measure.isProbabilityMeasure_map ?_; sorry
-  have : (Measure.prod ρ ρ) = (ρ.map (fun v ↦ (v, v))) := by
-    trans P'.map (fun ω' ↦ (B'_lim ω', B'_lim ω'))
-    · symm
-      apply HasLaw.map_eq
-      apply hasLaw_limit (X := (fun n ω' ↦ (B' n ω', B' (n + 1) ω')))
-      · sorry -- meas
-      · sorry -- meas
-      · filter_upwards [h_conv] with ω hω
-        rw [Prod.tendsto_iff]
-        refine ⟨hω, ?_⟩
-        rw [← Filter.tendsto_add_atTop_iff_nat 1] at hω
-        exact hω
-      · intro n
+  -- Setup measurability automation
+  have : Measurable A := by measurability
+  have (n : ℕ) : AEMeasurable (fun ω ↦ A ω n) (θ ρ) := Measurable.aemeasurable (by measurability)
+  have (n : ℕ) : Measurable (B n) := by measurability
+  have (n : ℕ) : AEMeasurable (B n) (θ ρ) := by measurability
+  haveI : IsProbabilityMeasure (Measure.map (fun v ↦ (v, v)) ρ) :=
+    Measure.isProbabilityMeasure_map (by measurability)
+  -- (A, B n) has the same distribution as (A', B' n)
+  have h_id n : IdentDistrib (fun ω ↦ (A ω, B n ω))
+      (fun ω' ↦ (A' ω', B' n ω')) (θ ρ) P' :=
+    HasLaw.identDistrib (HasLaw.mk (by measurability) (by aesop)) (h_law n)
+  -- It suffices to show that ρ × ρ is equal to the diagonal pushforward of ρ
+  suffices (Measure.prod ρ ρ) = (ρ.map (fun v ↦ (v, v))) by
+    apply @IsZeroOneMeasure.exists_eq_dirac _ _ _ ?_ _ _
+    refine ⟨fun s hs ↦ ?_⟩
+    have : (ρ s) * (ρ s) = ρ s := by
+      rw [← Measure.prod_prod, this, Measure.map_apply (by measurability) (by measurability)]
+      simp
+    rw [or_iff_not_imp_left]
+    exact fun hρ ↦ by simpa [ENNReal.mul_eq_left (hρ) (by aesop)] using this
+  -- The law of (B'_lim, B'_lim) is equal to the LHS and the RHS
+  -- We will prove this by approximating (B'_lim, B'_lim) in two different ways
+  trans P'.map (fun ω' ↦ (B'_lim ω', B'_lim ω'))
+  · symm
+    apply HasLaw.map_eq
+    -- Approximate using n ↦ (B n, B (n + 1))
+    apply hasLaw_of_tendsto_tendsto (X := (fun n ω' ↦ (B' n ω', B' (n + 1) ω')))
+        (ν := fun _ ↦ ρ.prod ρ)
+    · intro n
+      -- Exploit that A' ω' n = B' n ω almost surely
+      apply HasLaw.congr (X := fun ω' ↦ (A' ω' n, A' ω' (n + 1)))
+      · apply IdentDistrib.hasLaw (f := fun ω ↦ (A ω n, A ω (n + 1))) (μ := (θ ρ))
+        · exact (h_id 0).comp (u := fun (u, v) ↦ (u n, u (n + 1))) (by measurability)
+        apply IndepFun.hasLaw_prod
+        · refine ⟨by measurability, by apply Measure.infinitePi_map_eval⟩
+        · refine ⟨by measurability, by apply Measure.infinitePi_map_eval⟩
+        apply iIndepFun.indepFun (f := fun n ω ↦ A ω n)
+        · apply ProbabilityTheory.iIndepFun_infinitePi (X := fun n v ↦ v)
+          measurability
+        simp
+      · have A'_eq_B' n : ∀ᵐ ω' ∂P', A' ω' n = B' n ω' := by
+          have := (h_id n).comp (u := fun u ↦ (u.1 n, u.2)) (by measurability)
+          apply this.ae_snd (p := fun u ↦ u.1 = u.2) (by measurability)
+          simp
+        filter_upwards [A'_eq_B' n, A'_eq_B' (n + 1)] using by aesop
+    · filter_upwards [h_tt] with ω hω
+      refine (Prod.tendsto_iff _ _).mpr ⟨hω, ?_⟩
+      exact (Filter.tendsto_add_atTop_iff_nat 1).mpr hω
+    · simp
+  · apply HasLaw.map_eq
+    -- Approximate using n ↦ (B n, B n)
+    apply hasLaw_of_tendsto_tendsto (X := (fun n ω' ↦ (B' n ω', B' n ω')))
+        (ν := fun _ ↦ ρ.map (fun v ↦ (v, v)))
+    · intro n
+      have := (h_id n).comp (u := fun (u, v) ↦ (v, v)) (by measurability)
+      apply this.hasLaw
+      apply HasLaw.fun_comp (Y := fun v ↦ (v, v)) (μ := ρ)
+      · exact ⟨by measurability, rfl⟩
+      refine ⟨by measurability, by apply Measure.infinitePi_map_eval⟩
+    · filter_upwards [h_tt] using by simp [Prod.tendsto_iff]
+    · simp
 
-        sorry -- pointwise equality of law
-      · infer_instance
-      · infer_instance
-    · apply HasLaw.map_eq
-      apply hasLaw_limit (X := (fun n ω' ↦ (B' n ω', B' n ω')))
-      · sorry -- meas
-      · sorry -- meas
-      · filter_upwards [h_conv] with ω hω
-        rw [Prod.tendsto_iff]
-        exact ⟨hω, hω⟩
-      · intro n
-        have := (h_law n).comp (u := fun (u, v) ↦ (v, v)) (by measurability)
-        simp_rw [Function.comp_def] at this
-        apply this.hasLaw
+end StrongSkorokhod
 
-        sorry -- pointwise law
-      · infer_instance
-      · refine Measure.isProbabilityMeasure_map (by measurability)
-
-  have hasLaw_1 : HasLaw B'_lim ρ P' := by
-    sorry
-  have hasLaw_2 : HasLaw (fun ω' ↦ (B'_lim ω', B'_lim ω')) (ρ.map (fun v ↦ (v, v))) P' := by
-    sorry
-
-  -- have h_tt_1 : Tendsto G atTop (nhds G₁) := by
-  --   refine EventuallyEq.tendsto (Eventually.of_forall fun n ↦ ?_)
-  --   apply Subtype.ext
-  --   simp only [G, G₁]
-  --   apply HasLaw.map_eq
-  --   have : ∀ᵐ ω' ∂P', (B' n ω', B' (n + 1) ω') = (A' ω' n, A' ω' (n + 1)) := by
-  --     filter_upwards [A'_eq_B' n, A'_eq_B' (n + 1)] using by aesop
-  --   rw [← Filter.EventuallyEq] at this
-  --   apply HasLaw.congr _ this
-  --   have : IdentDistrib (fun ω ↦ (A ω n, A ω (n + 1)))
-  --       (fun ω' ↦ (A' ω' n, A' ω' (n + 1))) (θ ρ) P' :=
-  --     (h_law 0).comp (u := fun (u, v) ↦ (u n, u (n + 1))) (by measurability)
-  --   apply this.hasLaw
-  --   apply IndepFun.hasLaw_prod
-  --   · apply hasLaw_proj_A
-  --   · apply hasLaw_proj_A
-  --   apply iIndepFun.indepFun (f := fun n ω ↦ A ω n)
-  --   · apply ProbabilityTheory.iIndepFun_infinitePi (X := fun n v ↦ v)
-  --     measurability
-  --   simp
-
-  -- have h_tt_2 : Tendsto G atTop (nhds G₂) := by
-  --   sorry -- weak convergence to G₂
-  -- have hG_eq := tendsto_nhds_unique h_tt_1 h_tt_2
-  -- constructor
-  -- intro s hs
-  -- suffices (ρ s) * (ρ s) = ρ s by
-  --   sorry
-  -- have hs1 : ρ s * ρ s = G₁ (s ×ˢ s) := by simp [← Measure.prod_prod, G₁]
-  -- have hs2 : ρ s = G₂ (s ×ˢ s) := by
-  --   simp only [ProbabilityMeasure.mk_apply, G₂]
-  --   rw [Measure.map_apply (by measurability) (by measurability)]
-  --   simp
-  -- rw [hs1, hs2]
-  -- congr
 end
