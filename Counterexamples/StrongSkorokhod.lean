@@ -7,6 +7,7 @@ import Mathlib.MeasureTheory.Function.ConvergenceInDistribution
 import Mathlib.MeasureTheory.Measure.Typeclasses.ZeroOne
 import Mathlib.MeasureTheory.Measure.Tight
 import Mathlib.MeasureTheory.Measure.Prokhorov
+import Mathlib.MeasureTheory.Measure.Portmanteau
 
 open MeasureTheory ProbabilityTheory Filter
 
@@ -48,14 +49,57 @@ lemma hasLaw_of_tendsto_tendsto
   convert h_tt_law with n
   apply (h_law n).map_eq
 
+-- If the set of measures is tight, it suffices to check the limsup
+-- condition for compact sets in the portmanteau theorem.
+theorem MeasureTheory.tendsto_of_forall_isCompact_limsup_le
+    {Ω ι : Type*} {mΩ : MeasurableSpace Ω} [TopologicalSpace Ω]
+    [OpensMeasurableSpace Ω] [T2Space Ω]
+    {L : Filter ι} [L.IsCountablyGenerated]
+    [NeBot L]
+    {μ : Measure Ω} [IsProbabilityMeasure μ]
+    {μs : ι → Measure Ω} [∀ i, IsProbabilityMeasure (μs i)]
+    (h_tight : IsTightMeasureSet (μs '' Set.univ))
+    (h : ∀ (F : Set Ω), IsCompact F → Filter.limsup
+      (fun (i : ι) => (μs i) F) L ≤ μ F) :
+    Filter.Tendsto (fun i ↦ (μs i).toProbabilityMeasure) L
+      (nhds (μ.toProbabilityMeasure)) := by
+  apply tendsto_of_forall_isClosed_limsup_le
+  intro F hF_closed
+  rw [← ENNReal.coe_le_coe, ENNReal.ofNNReal_limsup]
+  swap; · exact isBoundedUnder_of_eventually_le (a := 1) (by aesop)
+  apply le_of_forall_pos_le_add
+  intro ε hε
+  rw [isTightMeasureSet_iff_exists_isCompact_measure_compl_le] at h_tight
+  obtain ⟨K, hKc, hK_le⟩ := h_tight ε (by positivity)
+  specialize h (F ∩ K) <| hKc.inter_left hF_closed
+  simp_rw [ProbabilityMeasure.ennreal_coeFn_eq_coeFn_toMeasure]
+  simp_rw [Measure.toProbabilityMeasure, ProbabilityMeasure.coe_mk]
+  grw [limsup_le_limsup (v := fun i ↦ (μs i (F ∩ K)) + ε)]
+  · rw [limsup_add_const _ _ _ (by isBoundedDefault) (by isBoundedDefault)]
+    apply add_le_add _ (by rfl)
+    grw [h]
+    apply measure_mono
+    simp
+  · apply Eventually.of_forall
+    intro i; simp only
+    rw [← measure_inter_add_diff _ hKc.measurableSet]
+    apply add_le_add (by rfl)
+    specialize hK_le (μs i) (by simp)
+    apply le_trans _ hK_le
+    apply measure_mono
+    simp
+
+-- A set of measures on a product space is tight if both marginals are tight
 lemma tight_of_marginals_tight
     {α β : Type*} [MeasurableSpace α] [MeasurableSpace β]
-    [TopologicalSpace α] [TopologicalSpace β] [OpensMeasurableSpace α]
+    [TopologicalSpace α] [TopologicalSpace β]
+    [OpensMeasurableSpace α] [OpensMeasurableSpace β]
+    [T2Space α] [T2Space β]
     (μ : Set (Measure (α × β)))
     (hμ_1 : IsTightMeasureSet {ν.map (fun x ↦ x.1) | ν ∈ μ})
     (hμ_2 : IsTightMeasureSet {ν.map (fun x ↦ x.2) | ν ∈ μ}) :
     IsTightMeasureSet μ := by
-  rw [IsTightMeasureSet_iff_exists_isCompact_measure_compl_le] at *
+  rw [isTightMeasureSet_iff_exists_isCompact_measure_compl_le] at *
   intro ε hε
   specialize hμ_1 (ε / 2) (by aesop)
   specialize hμ_2 (ε / 2) (by aesop)
@@ -76,12 +120,12 @@ lemma tight_of_marginals_tight
     rw [Measure.map_apply]
     · congr; aesop
     · measurability
-    · sorry -- measurability
+    · exact MeasurableSet.compl hKc_1.measurableSet
   · convert hKm_le_2
     rw [Measure.map_apply]
     · congr; aesop
     · measurability
-    · sorry -- measurability
+    · exact MeasurableSet.compl hKc_2.measurableSet
 
 end Auxiliary
 
@@ -120,35 +164,32 @@ instance (n : ℕ) : IsProbabilityMeasure (μ ρ n) := by
 theorem tendsto_μ_θ : Tendsto
     (fun n ↦ (μ ρ n).toProbabilityMeasure) atTop
     (nhds ((θ ρ).prod ρ).toProbabilityMeasure) := by
-  -- use subsequence argument and uniqueness of limits
-  apply tendsto_of_subseq_tendsto
-  let S := (Set.range (fun n ↦ (μ ρ n).toProbabilityMeasure))
-
-  intro m hm
-  have : IsTightMeasureSet {x : Measure (U × V) | ∃ μ ∈ S, μ = x} := by
-    apply tight_of_marginals_tight
+  apply MeasureTheory.tendsto_of_forall_isCompact_limsup_le
+  · apply tight_of_marginals_tight
     · apply IsTightMeasureSet.subset (T := {θ ρ})
       · apply isTightMeasureSet_singleton
-      · simp only [Set.mem_range, exists_exists_eq_and, Set.subset_singleton_iff, Set.mem_setOf_eq,
-        forall_exists_index, forall_apply_eq_imp_iff]
-        intro
-        sorry
-        -- rw [μ, Measure.map_map (by measurability) (by measurability)]
-        -- simp [Function.comp_def]
+      simp_rw [Set.exists_mem_image, μ]
+      conv in Measure.map _ _ =>
+        rw [Measure.map_map (by measurability) (by measurability)]
+      simp [Function.comp_def]
     · apply IsTightMeasureSet.subset (T := {ρ})
       · apply isTightMeasureSet_singleton
-      · simp
-        intro a ha
-        sorry
-        -- rw [μ, Measure.map_map (by measurability) (by measurability)]
-        -- apply Measure.infinitePi_map_eval
-  have := isCompact_closure_of_isTightMeasureSet this
-  have := this.tendsto_subseq (x := fun n ↦ (μ ρ (m n)).toProbabilityMeasure) (fun n ↦ subset_closure (by aesop))
-  obtain ⟨κ, hκ, ms, -, hms⟩ := this
-  use ms
-  convert hms
-  simp_rw [Function.comp_def] at hms
-  -- test the limit on cylinder functions
+      simp_rw [Set.exists_mem_image, μ]
+      conv in Measure.map _ _ =>
+        rw [Measure.map_map (by measurability) (by measurability)]
+      simpa using by apply Measure.infinitePi_map_eval
+  intro F hF_compact
+  -- prove limsup inequality for compact sets
+  let G n := {x : U × V | ∃ y ∈ F, (∀ m ≤ n, x.1 n = y.1 n) ∧ x.2 = y.2}
+  suffices ∀ m, limsup (fun i ↦ (μ ρ i) F) atTop ≤ ((θ ρ).prod ρ) (G m) by
+    trans limsup (fun m ↦ ((θ ρ).prod ρ) (G m)) atTop
+    · apply le_limsup_of_frequently_le _ (by isBoundedDefault)
+      apply Frequently.of_forall this
+    apply le_of_eq
+    apply Tendsto.limsup_eq
+    sorry -- show that measure converges (because sets converge)
+  intro m
+
   sorry
 
 -- Theorem 2: If there exist random variables A' and B' n, such that
