@@ -8,6 +8,7 @@ import Mathlib.MeasureTheory.Measure.Typeclasses.ZeroOne
 import Mathlib.MeasureTheory.Measure.Tight
 import Mathlib.MeasureTheory.Measure.Prokhorov
 import Mathlib.MeasureTheory.Measure.Portmanteau
+import Mathlib.Probability.IdentDistribIndep
 
 open MeasureTheory ProbabilityTheory Filter
 
@@ -164,6 +165,7 @@ instance (n : ℕ) : IsProbabilityMeasure (μ ρ n) := by
 theorem tendsto_μ_θ : Tendsto
     (fun n ↦ (μ ρ n).toProbabilityMeasure) atTop
     (nhds ((θ ρ).prod ρ).toProbabilityMeasure) := by
+
   apply MeasureTheory.tendsto_of_forall_isCompact_limsup_le
   · apply tight_of_marginals_tight
     · apply IsTightMeasureSet.subset (T := {θ ρ})
@@ -180,17 +182,64 @@ theorem tendsto_μ_θ : Tendsto
       simpa using by apply Measure.infinitePi_map_eval
   intro F hF_compact
   -- prove limsup inequality for compact sets
-  let G n := {x : U × V | ∃ y ∈ F, (∀ m ≤ n, x.1 n = y.1 n) ∧ x.2 = y.2}
-  suffices ∀ m, limsup (fun i ↦ (μ ρ i) F) atTop ≤ ((θ ρ).prod ρ) (G m) by
-    trans limsup (fun m ↦ ((θ ρ).prod ρ) (G m)) atTop
+  let P m (u : U × V) : U × V := (fun n ↦ u.1 (max n m), u.2)
+  suffices ∀ m, limsup (fun i ↦ (μ ρ i) F) atTop ≤ ((θ ρ).prod ρ) (P m ⁻¹' (P m '' F)) by
+    trans limsup (fun m ↦ ((θ ρ).prod ρ) (P m ⁻¹' (P m '' F))) atTop
     · apply le_limsup_of_frequently_le _ (by isBoundedDefault)
       apply Frequently.of_forall this
     apply le_of_eq
     apply Tendsto.limsup_eq
-    sorry -- show that measure converges (because sets converge)
   intro m
+  apply limsup_le_of_le (by isBoundedDefault)
+  filter_upwards [eventually_ge_atTop (m + 1)] with n hn
+  trans (μ ρ n) (P m ⁻¹' (P m '' F))
+  · apply measure_mono
+    grind
+  apply le_of_eq
+  rw [← Measure.map_apply, ← Measure.map_apply]
+  rotate_left
+  · measurability
+  · sorry
+  · measurability
+  · sorry
+  congr 1
+  rw [μ, Measure.map_map]
+  rotate_left
+  · measurability
+  · measurability
+  simp_rw [Function.comp_def]
 
-  sorry
+  apply Measure.ext_prod
+  intro s t hs ht
+  rw [Measure.map_apply (by measurability) (by measurability)]
+
+
+
+  trans (((θ ρ).prod ρ).map
+    ((fun v ↦ (fun n ↦ v (max n m), v n)) ∘ (fun u ↦ u.1)))
+  · rw [← Measure.map_map]
+    rotate_left
+    · measurability
+    · measurability
+    simp; grind
+  apply IdentDistrib.map_eq
+  apply IdentDistrib.prodMk
+  · apply ProbabilityTheory.IdentDistrib.of_ae_eq
+    · apply Measurable.aemeasurable
+      measurability
+    · aesop
+  · simp
+    apply HasLaw.identDistrib (κ := ρ)
+    ·
+      refine ⟨?_, ?_⟩
+      · apply Measurable.aemeasurable
+        measurability
+      sorry
+    · sorry -- write aux lemma
+  · sorry -- independence
+  · sorry -- independence
+
+
 
 -- Theorem 2: If there exist random variables A' and B' n, such that
 -- (A', B' n) has law μ n and B' n converges almost surely,
