@@ -9,6 +9,7 @@ import Mathlib.MeasureTheory.Measure.Tight
 import Mathlib.MeasureTheory.Measure.Prokhorov
 import Mathlib.MeasureTheory.Measure.Portmanteau
 import Mathlib.Probability.IdentDistribIndep
+import Mathlib.Probability.Independence.Process.Basic
 
 open MeasureTheory ProbabilityTheory Filter Function
 
@@ -53,6 +54,18 @@ theorem MeasureTheory.tendstoInDistribution_of_ae_tendsto
   · simp
   filter_upwards [h] with ω hω using (f.continuous.tendsto (Z ω)).comp hω
 
+theorem hasLaw_infinitePi
+    {ι Ω : Type*} {mΩ : MeasurableSpace Ω} {P : Measure Ω} [IsProbabilityMeasure P]
+    {e : ι → ι} (he : Injective e) :
+    (Measure.infinitePi (fun (_ : ι) ↦ P)).map (fun ω i ↦ ω (e i)) = Measure.infinitePi (fun _ ↦ P) := by
+  apply HasLaw.map_eq
+  apply iIndepFun.hasLaw_infinitePi
+  · refine fun i ↦ ⟨by apply Measurable.aemeasurable; measurability, ?_⟩
+    apply Measure.infinitePi_map_eval
+  · have := iIndepFun_infinitePi (P := fun (_ : ι) ↦ P) (X := fun x ω ↦ ω) (by measurability)
+    exact iIndepFun.precomp he this
+  · apply Measurable.aemeasurable; measurability
+
 -- Identify the law of the limit of a sequence of random variables
 lemma hasLaw_of_tendsto_tendsto
     {Ω : Type*} {α : Type*} [MeasurableSpace Ω] [MeasurableSpace α]
@@ -84,16 +97,15 @@ section StrongSkorokhod
 
 -- We assume we are given some probability measure ρ on V = ℝ
 abbrev V := ℝ
-instance : MeasurableSpace V := inferInstance
 variable (ρ : Measure V) [IsProbabilityMeasure ρ]
 
 -- θ is the infinite product measure of ρ
 abbrev Ω := (ℕ → V)
-instance : MeasurableSpace Ω := .pi
-def θ : Measure Ω := MeasureTheory.Measure.infinitePi (fun _ ↦ ρ)
+abbrev θ : Measure Ω := MeasureTheory.Measure.infinitePi (fun _ ↦ ρ)
 
 -- Abbreviations for spaces and random variables
 abbrev U := (ℕ → V)
+
 abbrev A : Ω → U := id
 abbrev B (n : ℕ) (ω : Ω) : V := ω n
 
@@ -115,13 +127,13 @@ instance (n : ℕ) : IsProbabilityMeasure (μ ρ n) := by
 theorem tendsto_μ_θ : Tendsto
     (fun n ↦ (μ ρ n).toProbabilityMeasure) atTop
     (nhds ((θ ρ).prod ρ).toProbabilityMeasure) := by
-  let P m (ω : Ω) : Ω := fun n ↦
-    if n < m then ω (n + 1)
-    else if n = m then ω 0
-    else ω n
-  let P' (ω : Ω) : Ω := fun n ↦ ω (n + 1)
+  let P m (n : ℕ) :=
+    if n < m then n + 1
+    else if n = m then 0
+    else n
+  let Q m (ω : Ω) : Ω := fun n ↦ ω (P m n)
   have : TendstoInDistribution
-      (fun n ω ↦ (A (P n ω), B n (P n ω)))
+      (fun n ↦ (fun ω ↦ (A ω, B n ω)) ∘ Q n)
       (atTop)
       (fun ω : Ω ↦ ((fun n ↦ ω (n + 1)), ω 0))
       (fun _ ↦ (θ ρ)) (θ ρ) := by
@@ -133,17 +145,58 @@ theorem tendsto_μ_θ : Tendsto
       · rw [tendsto_pi_nhds]
         intro n
         apply EventuallyEq.tendsto
-        filter_upwards [eventually_ge_atTop (n + 1)] using by aesop
+        filter_upwards [eventually_ge_atTop (n + 1)] with m hm
+        aesop
       apply EventuallyEq.tendsto
       apply Eventually.of_forall
       grind
     · measurability
-
-  sorry
-
-
-
-
+  convert this.tendsto with n
+  · rw [μ, ← MeasureTheory.Measure.map_map (by measurability) (by measurability)]
+    congr; symm
+    refine hasLaw_infinitePi ?_
+    apply Function.HasLeftInverse.injective
+    refine ⟨fun m ↦
+      if m = 0 then n
+      else if m ≤ n then (m - 1)
+      else m, ?_⟩
+    grind
+  · symm
+    apply HasLaw.map_eq
+    apply IndepFun.hasLaw_prod
+    · refine ⟨?_, ?_⟩
+      · apply Measurable.aemeasurable; measurability
+      apply hasLaw_infinitePi
+      intro i j hij
+      grind
+    · refine ⟨?_, by apply Measure.infinitePi_map_eval⟩
+      · apply Measurable.aemeasurable
+        measurability
+    · symm;
+      apply ProbabilityTheory.IndepFun.indepFun_process
+      · measurability
+      · measurability
+      intro S
+      let T : Finset ℕ := {0}
+      have : (0 ∈ T) := by aesop
+      have := iIndepFun_infinitePi (P := fun (i : ℕ) ↦ ρ) (X := fun _ ω ↦ ω) (by measurability)
+      have := iIndepFun.indepFun_finset {0} (S.image (fun n ↦ n + 1)) (by simp) (this) (by measurability)
+      simp only at this
+      rw [IndepFun_iff_Indep] at ⊢ this
+      apply indep_of_indep_of_le_right (indep_of_indep_of_le_left this _)
+      · let S' := (S.image (fun n ↦ n + 1))
+        let g (u : (S' → V)) : (S → V) := fun m ↦ u (⟨(m : ℕ) + 1, by aesop⟩)
+        have : (fun (ω : Ω) (i : S) ↦ ω (i + 1)) = g ∘ (fun (ω : Ω) i ↦ ω i) := by aesop
+        rw [this, ← MeasurableSpace.comap_comp]
+        apply MeasurableSpace.comap_mono ?_
+        apply Measurable.comap_le
+        measurability
+      · let g (u : T → V) : V := u ⟨0, by aesop⟩
+        have : (fun ω ↦ ω 0) = g ∘ (fun (a : Ω) i ↦ a i) := by aesop
+        rw [this, ← MeasurableSpace.comap_comp]
+        apply MeasurableSpace.comap_mono ?_
+        apply Measurable.comap_le
+        measurability
 
 -- Theorem 2: If there exist random variables A' and B' n, such that
 -- (A', B' n) has law μ n and B' n converges almost surely,
@@ -299,80 +352,3 @@ lemma tight_of_marginals_tight
     · congr; aesop
     · measurability
     · exact MeasurableSet.compl hKc_2.measurableSet
-
--- -- Theorem 1: The sequence n ↦ μ n converges weakly to θ × ρ
--- theorem tendsto_μ_θ' : Tendsto
---     (fun n ↦ (μ ρ n).toProbabilityMeasure) atTop
---     (nhds ((θ ρ).prod ρ).toProbabilityMeasure) := by
-
---   apply MeasureTheory.tendsto_of_forall_isCompact_limsup_le
---   · apply tight_of_marginals_tight
---     · apply IsTightMeasureSet.subset (T := {θ ρ})
---       · apply isTightMeasureSet_singleton
---       simp_rw [Set.exists_mem_image, μ]
---       conv in Measure.map _ _ =>
---         rw [Measure.map_map (by measurability) (by measurability)]
---       simp [Function.comp_def]
---     · apply IsTightMeasureSet.subset (T := {ρ})
---       · apply isTightMeasureSet_singleton
---       simp_rw [Set.exists_mem_image, μ]
---       conv in Measure.map _ _ =>
---         rw [Measure.map_map (by measurability) (by measurability)]
---       simpa using by apply Measure.infinitePi_map_eval
---   intro F hF_compact
---   -- prove limsup inequality for compact sets
---   let P m (u : U × V) : U × V := (fun n ↦ u.1 (max n m), u.2)
---   suffices ∀ m, limsup (fun i ↦ (μ ρ i) F) atTop ≤ ((θ ρ).prod ρ) (P m ⁻¹' (P m '' F)) by
---     trans limsup (fun m ↦ ((θ ρ).prod ρ) (P m ⁻¹' (P m '' F))) atTop
---     · apply le_limsup_of_frequently_le _ (by isBoundedDefault)
---       apply Frequently.of_forall this
---     apply le_of_eq
---     apply Tendsto.limsup_eq
---     sorry
---   intro m
---   apply limsup_le_of_le (by isBoundedDefault)
---   filter_upwards [eventually_ge_atTop (m + 1)] with n hn
---   trans (μ ρ n) (P m ⁻¹' (P m '' F))
---   · apply measure_mono
---     grind
---   apply le_of_eq
---   rw [← Measure.map_apply, ← Measure.map_apply]
---   rotate_left
---   · measurability
---   · sorry
---   · measurability
---   · sorry
---   congr 1
---   rw [μ, Measure.map_map]
---   rotate_left
---   · measurability
---   · measurability
---   simp_rw [Function.comp_def]
-
---   apply Measure.ext_prod
---   intro s t hs ht
---   rw [Measure.map_apply (by measurability) (by measurability)]
---   sorry
---   -- trans (((θ ρ).prod ρ).map
---   --   ((fun v ↦ (fun n ↦ v (max n m), v n)) ∘ (fun u ↦ u.1)))
---   -- · rw [← Measure.map_map]
---   --   rotate_left
---   --   · measurability
---   --   · measurability
---   --   simp; grind
---   -- apply IdentDistrib.map_eq
---   -- apply IdentDistrib.prodMk
---   -- · apply ProbabilityTheory.IdentDistrib.of_ae_eq
---   --   · apply Measurable.aemeasurable
---   --     measurability
---   --   · aesop
---   -- · simp
---   --   apply HasLaw.identDistrib (κ := ρ)
---   --   ·
---   --     refine ⟨?_, ?_⟩
---   --     · apply Measurable.aemeasurable
---   --       measurability
---   --     sorry
---   --   · sorry -- write aux lemma
---   -- · sorry -- independence
---   -- · sorry -- independence
