@@ -17,7 +17,7 @@ noncomputable section
 
 section Auxiliary
 
-lemma meas_eq_iff_prob_meas_eq {Ω : Type*} [MeasurableSpace Ω]
+lemma MeasureTheory.Measure.toProbabilityMeasure_inj {Ω : Type*} [MeasurableSpace Ω]
     {μ : Measure Ω} {ν : Measure Ω} (hμ : IsProbabilityMeasure μ) (hν : IsProbabilityMeasure ν) :
     μ = ν ↔ (⟨μ, hμ⟩ : ProbabilityMeasure Ω) = ⟨ν, hν⟩ := by simp
 
@@ -83,7 +83,7 @@ lemma hasLaw_of_tendsto_tendsto
   have : AEMeasurable X_lim μ :=
     aemeasurable_of_tendsto_metrizable_ae' (by measurability) h_tt_ae
   refine ⟨by measurability, ?_⟩
-  rw [meas_eq_iff_prob_meas_eq (?_) (inferInstance)]
+  rw [toProbabilityMeasure_inj (?_) (inferInstance)]
   swap; · refine isProbabilityMeasure_map ?_; measurability
   have := ((tendstoInMeasure_of_tendsto_ae (μ := μ) (by measurability) h_tt_ae).tendstoInDistribution
     (by measurability)).tendsto
