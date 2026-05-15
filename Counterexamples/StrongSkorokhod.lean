@@ -66,36 +66,10 @@ theorem hasLaw_infinitePi
   · have := iIndepFun_infinitePi (P := fun (_ : ι) ↦ P) (X := fun x ω ↦ ω) (by measurability)
     exact iIndepFun.precomp he this
 
--- If a sequence of random variables with laws μ n converges almost surely,
--- then μ n converges to μ iff the limit has law μ
-lemma hasLaw_of_tendsto_tendsto''
+-- If the laws of an ae convergent sequence converge, then the limit must be law of the limit
+lemma hasLaw_of_ae_tendsto_of_hasLaw
     {Ω : Type*} {α : Type*} [MeasurableSpace Ω] [MeasurableSpace α]
     [TopologicalSpace α] [BorelSpace α] [TopologicalSpace.PseudoMetrizableSpace α]
-    {μ : Measure Ω} [IsProbabilityMeasure μ]
-    {ν : ℕ → ProbabilityMeasure α}
-    (ν_lim : ProbabilityMeasure α)
-    {X : ℕ → Ω → α} {X_lim : Ω → α}
-    (h_law : ∀ n, HasLaw (X n) (ν n) μ)
-    (h_tt_ae : ∀ᵐ ω ∂μ, Tendsto (fun n ↦ X n ω) atTop (nhds (X_lim ω))) :
-    Tendsto (fun n ↦ (ν n)) atTop (nhds ν_lim) ↔
-    HasLaw X_lim ν_lim μ := by
-  have := aemeasurable_of_tendsto_metrizable_ae atTop (by measurability) h_tt_ae
-  have := (tendstoInDistribution_of_ae_tendsto h_tt_ae (by measurability)).tendsto
-  refine ⟨fun h ↦ ?_, fun h ↦ ?_⟩
-  · refine ⟨by measurability, ?_⟩
-    rw [toProbabilityMeasure_inj ?_ (inferInstance)]
-    swap; · exact isProbabilityMeasure_map (by measurability)
-    apply tendsto_nhds_unique this
-    convert h with n
-    · exact Subtype.ext (h_law n).map_eq
-  · convert (tendstoInDistribution_of_ae_tendsto h_tt_ae (by measurability)).tendsto with n
-    · exact Subtype.ext (h_law n).map_eq.symm
-    · exact Subtype.ext h.map_eq.symm
-
--- Identify the law of the limit of a sequence of random variables
-lemma hasLaw_of_tendsto_tendsto
-    {Ω : Type*} {α : Type*} [MeasurableSpace Ω] [MeasurableSpace α]
-    [SeminormedAddCommGroup α] [SecondCountableTopology α] [BorelSpace α]
     {μ : Measure Ω} [IsProbabilityMeasure μ]
     {ν : ℕ → Measure α} [hν : ∀ n, IsProbabilityMeasure (ν n)]
     {ν_lim : Measure α} [hν_lim : IsProbabilityMeasure ν_lim]
@@ -103,9 +77,32 @@ lemma hasLaw_of_tendsto_tendsto
     (h_law : ∀ n, HasLaw (X n) (ν n) μ)
     (h_tt_ae : ∀ᵐ ω ∂μ, Tendsto (fun n ↦ X n ω) atTop (nhds (X_lim ω)))
     (h_tt_law : Tendsto (fun n ↦ (ν n).toProbabilityMeasure) atTop
-      (nhds ν_lim.toProbabilityMeasure)) :
-    HasLaw X_lim ν_lim μ :=
-  (hasLaw_of_tendsto_tendsto'' ν_lim.toProbabilityMeasure h_law h_tt_ae).mp h_tt_law
+      (nhds ν_lim.toProbabilityMeasure)) : HasLaw X_lim ν_lim μ := by
+  -- todo: clean up this proof to make use of tendsto_of_ae_tendsto_of_hasLaw
+  have := aemeasurable_of_tendsto_metrizable_ae atTop (by measurability) h_tt_ae
+  have := (tendstoInDistribution_of_ae_tendsto h_tt_ae (by measurability)).tendsto
+  refine ⟨by measurability, ?_⟩
+  rw [toProbabilityMeasure_inj ?_ (inferInstance)]
+  swap; · exact isProbabilityMeasure_map (by measurability)
+  apply tendsto_nhds_unique this
+  convert h_tt_law with n
+  · exact (h_law n).map_eq
+
+-- The law of an ae convergent sequence converges to the law of the limit
+lemma tendsto_of_ae_tendsto_of_hasLaw
+    {Ω : Type*} {α : Type*} [MeasurableSpace Ω] [MeasurableSpace α]
+    [TopologicalSpace α] [BorelSpace α] [TopologicalSpace.PseudoMetrizableSpace α]
+    {μ : Measure Ω} [IsProbabilityMeasure μ]
+    {ν : ℕ → Measure α} [hν : ∀ n, IsProbabilityMeasure (ν n)]
+    {ν_lim : Measure α} [hν_lim : IsProbabilityMeasure ν_lim]
+    {X : ℕ → Ω → α} {X_lim : Ω → α}
+    (h_tt_ae : ∀ᵐ ω ∂μ, Tendsto (fun n ↦ X n ω) atTop (nhds (X_lim ω)))
+    (h_law : ∀ n, HasLaw (X n) (ν n) μ)
+    (h_law_lim : HasLaw X_lim ν_lim μ) :
+      Tendsto (fun n ↦ (ν n).toProbabilityMeasure) atTop (nhds ν_lim.toProbabilityMeasure) := by
+  convert (tendstoInDistribution_of_ae_tendsto h_tt_ae (by measurability)).tendsto with n
+  · exact (h_law n).map_eq.symm
+  · exact h_law_lim.map_eq.symm
 
 end Auxiliary
 
@@ -137,8 +134,10 @@ instance (n : ℕ) : IsProbabilityMeasure (μ ρ n) := by
   apply isProbabilityMeasure_map; measurability
 
 -- Theorem 1: The sequence n ↦ μ n converges weakly to θ × ρ
-theorem tendsto_μ_θ : Tendsto
-    (fun n ↦ (μ ρ n).toProbabilityMeasure) atTop
+theorem tendsto_μ_θ :
+    letI : TopologicalSpace U := Pi.topologicalSpace
+    letI : MeasurableSpace Ω := MeasurableSpace.pi
+    Tendsto (fun n ↦ (μ ρ n).toProbabilityMeasure) atTop
     (nhds ((θ ρ).prod ρ).toProbabilityMeasure) := by
   let P m (n : ℕ) :=
     if n < m then n + 1
@@ -245,8 +244,9 @@ theorem measure_const_of_strong_skorokhod
   · symm
     apply HasLaw.map_eq
     -- Approximate using n ↦ (B n, B (n + 1))
-    apply hasLaw_of_tendsto_tendsto (X := (fun n ω' ↦ (B' n ω', B' (n + 1) ω')))
-        (ν := fun _ ↦ ρ.prod ρ)
+    apply hasLaw_of_ae_tendsto_of_hasLaw
+      (X := fun n ω ↦ (B' n ω, B' (n + 1) ω))
+      (ν := fun _ ↦ ρ.prod ρ)
     · intro n
       -- Exploit that A' ω' n = B' n ω almost surely
       apply HasLaw.congr (X := fun ω' ↦ (A' ω' n, A' ω' (n + 1)))
@@ -267,11 +267,12 @@ theorem measure_const_of_strong_skorokhod
     · filter_upwards [h_tt] with ω hω
       refine (Prod.tendsto_iff _ _).mpr ⟨hω, ?_⟩
       exact (Filter.tendsto_add_atTop_iff_nat 1).mpr hω
-    · simp
+    simp
   · apply HasLaw.map_eq
     -- Approximate using n ↦ (B n, B n)
-    apply hasLaw_of_tendsto_tendsto (X := (fun n ω' ↦ (B' n ω', B' n ω')))
-        (ν := fun _ ↦ ρ.map (fun v ↦ (v, v)))
+    apply hasLaw_of_ae_tendsto_of_hasLaw
+      (X := (fun n ω' ↦ (B' n ω', B' n ω')))
+      (ν := fun _ ↦ ρ.map (fun v ↦ (v, v)))
     · intro n
       have := (h_id n).comp (u := fun (u, v) ↦ (v, v)) (by measurability)
       apply this.hasLaw
