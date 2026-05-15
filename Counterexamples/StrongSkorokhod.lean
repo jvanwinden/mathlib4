@@ -66,6 +66,32 @@ theorem hasLaw_infinitePi
   · have := iIndepFun_infinitePi (P := fun (_ : ι) ↦ P) (X := fun x ω ↦ ω) (by measurability)
     exact iIndepFun.precomp he this
 
+-- If a sequence of random variables with laws μ n converges almost surely,
+-- then μ n converges to μ iff the limit has law μ
+lemma hasLaw_of_tendsto_tendsto''
+    {Ω : Type*} {α : Type*} [MeasurableSpace Ω] [MeasurableSpace α]
+    [TopologicalSpace α] [BorelSpace α] [TopologicalSpace.PseudoMetrizableSpace α]
+    {μ : Measure Ω} [IsProbabilityMeasure μ]
+    {ν : ℕ → ProbabilityMeasure α}
+    (ν_lim : ProbabilityMeasure α)
+    {X : ℕ → Ω → α} {X_lim : Ω → α}
+    (h_law : ∀ n, HasLaw (X n) (ν n) μ)
+    (h_tt_ae : ∀ᵐ ω ∂μ, Tendsto (fun n ↦ X n ω) atTop (nhds (X_lim ω))) :
+    Tendsto (fun n ↦ (ν n)) atTop (nhds ν_lim) ↔
+    HasLaw X_lim ν_lim μ := by
+  have := aemeasurable_of_tendsto_metrizable_ae atTop (by measurability) h_tt_ae
+  have := (tendstoInDistribution_of_ae_tendsto h_tt_ae (by measurability)).tendsto
+  refine ⟨fun h ↦ ?_, fun h ↦ ?_⟩
+  · refine ⟨by measurability, ?_⟩
+    rw [toProbabilityMeasure_inj ?_ (inferInstance)]
+    swap; · exact isProbabilityMeasure_map (by measurability)
+    apply tendsto_nhds_unique this
+    convert h with n
+    · exact Subtype.ext (h_law n).map_eq
+  · convert (tendstoInDistribution_of_ae_tendsto h_tt_ae (by measurability)).tendsto with n
+    · exact Subtype.ext (h_law n).map_eq.symm
+    · exact Subtype.ext h.map_eq.symm
+
 -- Identify the law of the limit of a sequence of random variables
 lemma hasLaw_of_tendsto_tendsto
     {Ω : Type*} {α : Type*} [MeasurableSpace Ω] [MeasurableSpace α]
@@ -78,18 +104,8 @@ lemma hasLaw_of_tendsto_tendsto
     (h_tt_ae : ∀ᵐ ω ∂μ, Tendsto (fun n ↦ X n ω) atTop (nhds (X_lim ω)))
     (h_tt_law : Tendsto (fun n ↦ (ν n).toProbabilityMeasure) atTop
       (nhds ν_lim.toProbabilityMeasure)) :
-    HasLaw X_lim ν_lim μ := by
-  have : ∀ n, AEMeasurable (X n) μ := fun n ↦ (h_law n).aemeasurable
-  have : AEMeasurable X_lim μ :=
-    aemeasurable_of_tendsto_metrizable_ae' (by measurability) h_tt_ae
-  refine ⟨by measurability, ?_⟩
-  rw [toProbabilityMeasure_inj (?_) (inferInstance)]
-  swap; · refine isProbabilityMeasure_map ?_; measurability
-  have := ((tendstoInMeasure_of_tendsto_ae (μ := μ) (by measurability) h_tt_ae).tendstoInDistribution
-    (by measurability)).tendsto
-  apply tendsto_nhds_unique this
-  convert h_tt_law with n
-  apply (h_law n).map_eq
+    HasLaw X_lim ν_lim μ :=
+  (hasLaw_of_tendsto_tendsto'' ν_lim.toProbabilityMeasure h_law h_tt_ae).mp h_tt_law
 
 end Auxiliary
 
