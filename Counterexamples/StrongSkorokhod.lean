@@ -21,10 +21,8 @@ lemma meas_eq_iff_prob_meas_eq {Ω : Type*} [MeasurableSpace Ω]
     {μ : Measure Ω} {ν : Measure Ω} (hμ : IsProbabilityMeasure μ) (hν : IsProbabilityMeasure ν) :
     μ = ν ↔ (⟨μ, hμ⟩ : ProbabilityMeasure Ω) = ⟨ν, hν⟩ := by simp
 
-def MeasureTheory.Measure.toProbabilityMeasure
-    {Ω : Type*} [MeasurableSpace Ω] (μ : Measure Ω)
-    [IsProbabilityMeasure μ] :
-  ProbabilityMeasure Ω := ⟨μ, inferInstance⟩
+def MeasureTheory.Measure.toProbabilityMeasure {Ω : Type*} [MeasurableSpace Ω] (μ : Measure Ω)
+    [IsProbabilityMeasure μ] : ProbabilityMeasure Ω := ⟨μ, inferInstance⟩
 
 theorem MeasureTheory.tendstoInDistribution_of_ae_tendsto
     {E Ω' : Type*} {m' : MeasurableSpace Ω'} {μ' : Measure Ω'} [IsProbabilityMeasure μ']
@@ -46,13 +44,17 @@ theorem MeasureTheory.tendstoInDistribution_of_ae_tendsto
   apply tendsto_integral_filter_of_dominated_convergence (bound := fun _ ↦ ‖f‖)
   · apply Eventually.of_forall; intro n; apply AEMeasurable.aestronglyMeasurable
     measurability
-  · apply Eventually.of_forall
-    intro n
-    apply Eventually.of_forall
-    intro ω
-    apply f.norm_coe_le_norm
+  · exact Eventually.of_forall <| fun _ ↦ .of_forall <| fun _ ↦ by apply f.norm_coe_le_norm
   · simp
   filter_upwards [h] with ω hω using (f.continuous.tendsto (Z ω)).comp hω
+
+theorem hasLaw_infinitePi_eval
+    {ι : Type*} {Ω : ι → Type*} {mΩ : (i : ι) → MeasurableSpace (Ω i)} {μ : (i : ι) → Measure (Ω i)}
+    [∀ i, IsProbabilityMeasure (μ i)]
+    (i : ι) : HasLaw (fun ω ↦ ω i) (μ i) (infinitePi (fun i ↦ μ i)) := by
+  refine ⟨?_, by apply infinitePi_map_eval⟩
+  apply Measurable.aemeasurable
+  measurability
 
 theorem hasLaw_infinitePi
     {ι Ω : Type*} {mΩ : MeasurableSpace Ω} {P : Measure Ω} [IsProbabilityMeasure P]
@@ -60,8 +62,7 @@ theorem hasLaw_infinitePi
     (infinitePi (fun (_ : ι) ↦ P)).map (fun ω i ↦ ω (e i)) = infinitePi (fun _ ↦ P) := by
   apply HasLaw.map_eq
   refine iIndepFun.hasLaw_infinitePi ?_ ?_ (by apply Measurable.aemeasurable; measurability)
-  · refine fun i ↦ ⟨by apply Measurable.aemeasurable; measurability, ?_⟩
-    apply infinitePi_map_eval
+  · exact fun _ ↦ by apply hasLaw_infinitePi_eval (μ := fun _ ↦ P)
   · have := iIndepFun_infinitePi (P := fun (_ : ι) ↦ P) (X := fun x ω ↦ ω) (by measurability)
     exact iIndepFun.precomp he this
 
@@ -165,9 +166,7 @@ theorem tendsto_μ_θ : Tendsto
       apply hasLaw_infinitePi
       intro i j hij
       grind
-    · refine ⟨?_, by apply infinitePi_map_eval⟩
-      · apply Measurable.aemeasurable
-        measurability
+    · apply hasLaw_infinitePi_eval (μ := fun _ ↦ ρ)
     · symm;
       apply ProbabilityTheory.IndepFun.indepFun_process
       · measurability
@@ -238,8 +237,8 @@ theorem measure_const_of_strong_skorokhod
       · apply IdentDistrib.hasLaw (f := fun ω ↦ (A ω n, A ω (n + 1))) (μ := (θ ρ))
         · exact (h_id 0).comp (u := fun (u, v) ↦ (u n, u (n + 1))) (by measurability)
         apply IndepFun.hasLaw_prod
-        · refine ⟨by measurability, by apply infinitePi_map_eval⟩
-        · refine ⟨by measurability, by apply infinitePi_map_eval⟩
+        · apply hasLaw_infinitePi_eval
+        · apply hasLaw_infinitePi_eval (μ := fun _ ↦ ρ)
         apply iIndepFun.indepFun (f := fun n ω ↦ A ω n)
         · apply ProbabilityTheory.iIndepFun_infinitePi (X := fun n v ↦ v)
           measurability
@@ -262,7 +261,7 @@ theorem measure_const_of_strong_skorokhod
       apply this.hasLaw
       apply HasLaw.fun_comp (Y := fun v ↦ (v, v)) (μ := ρ)
       · exact ⟨by measurability, rfl⟩
-      refine ⟨by measurability, by apply infinitePi_map_eval⟩
+      apply hasLaw_infinitePi_eval
     · filter_upwards [h_tt] using by simp [Prod.tendsto_iff]
     · simp
 
