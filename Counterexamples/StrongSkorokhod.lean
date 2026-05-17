@@ -328,39 +328,26 @@ theorem MeasureTheory.tendsto_of_forall_isCompact_limsup_le
     simp
 
 -- A set of measures on a product space is tight if both marginals are tight
-lemma tight_of_marginals_tight
+lemma isTightMeasureSet_prodMk
     {α β : Type*} [MeasurableSpace α] [MeasurableSpace β]
     [TopologicalSpace α] [TopologicalSpace β]
     [OpensMeasurableSpace α] [OpensMeasurableSpace β]
     [T2Space α] [T2Space β]
     (μ : Set (Measure (α × β)))
-    (hμ_1 : IsTightMeasureSet {ν.map (fun x ↦ x.1) | ν ∈ μ})
-    (hμ_2 : IsTightMeasureSet {ν.map (fun x ↦ x.2) | ν ∈ μ}) :
+    (hμ_1 : IsTightMeasureSet (fst '' μ))
+    (hμ_2 : IsTightMeasureSet (snd '' μ)) :
     IsTightMeasureSet μ := by
-  rw [isTightMeasureSet_iff_exists_isCompact_measure_compl_le] at *
+  rw [isTightMeasureSet_iff_exists_isCompact_measure_compl_le] at hμ_1 hμ_2 ⊢
   intro ε hε
-  specialize hμ_1 (ε / 2) (by aesop)
-  specialize hμ_2 (ε / 2) (by aesop)
-  obtain ⟨K1, hKc_1, hKm_le_1⟩ := hμ_1
-  obtain ⟨K2, hKc_2, hKm_le_2⟩ := hμ_2
-  refine ⟨K1 ×ˢ K2, ?_, ?_⟩
-  · exact IsCompact.prod hKc_1 hKc_2
-  intro κ hκ_mem
-  simp only [Set.mem_setOf_eq, forall_exists_index, and_imp, forall_apply_eq_imp_iff₂] at *
-  specialize hKm_le_1 κ hκ_mem
-  specialize hKm_le_2 κ hκ_mem
-  have : (K1 ×ˢ K2)ᶜ ⊆ (K1 ×ˢ Set.univ)ᶜ ∪ (Set.univ ×ˢ K2)ᶜ := by
-    grind
-  grw [measure_mono this, measure_union_le]
-  rw [← ENNReal.add_halves (a := ε)]
+  obtain ⟨K1, hKc_1, hKm_le_1⟩ := hμ_1 (ε / 2) (by aesop)
+  obtain ⟨K2, hKc_2, hKm_le_2⟩ := hμ_2 (ε / 2) (by aesop)
+  refine ⟨K1 ×ˢ K2, hKc_1.prod hKc_2, fun κ hκ_mem ↦ ?_⟩
+  have : (K1 ×ˢ K2)ᶜ ⊆ (K1 ×ˢ Set.univ)ᶜ ∪ (Set.univ ×ˢ K2)ᶜ := by grind
+  grw [measure_mono this, measure_union_le, ← ENNReal.add_halves (a := ε)]
   apply add_le_add
-  · convert hKm_le_1
-    rw [map_apply]
-    · congr; aesop
-    · measurability
-    · exact MeasurableSet.compl hKc_1.measurableSet
-  · convert hKm_le_2
-    rw [map_apply]
-    · congr; aesop
-    · measurability
-    · exact MeasurableSet.compl hKc_2.measurableSet
+  · convert hKm_le_1 κ.fst (by aesop)
+    rw [Measure.fst_apply <| MeasurableSet.compl hKc_1.measurableSet]
+    congr; aesop
+  · convert hKm_le_2 κ.snd (by aesop)
+    rw [Measure.snd_apply <| MeasurableSet.compl hKc_2.measurableSet]
+    congr; aesop
