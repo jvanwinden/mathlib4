@@ -48,22 +48,19 @@ theorem MeasureTheory.tendstoInDistribution_of_ae_tendsto
   · simp
   filter_upwards [h] with ω hω using (f.continuous.tendsto (Z ω)).comp hω
 
-theorem hasLaw_infinitePi_eval
-    {ι : Type*} {Ω : ι → Type*} {mΩ : (i : ι) → MeasurableSpace (Ω i)} {μ : (i : ι) → Measure (Ω i)}
-    [∀ i, IsProbabilityMeasure (μ i)]
-    (i : ι) : HasLaw (fun ω ↦ ω i) (μ i) (infinitePi (fun i ↦ μ i)) := by
-  refine ⟨?_, by apply infinitePi_map_eval⟩
-  apply Measurable.aemeasurable
-  measurability
+theorem hasLaw_infinitePi_eval {ι : Type*} {Ω : ι → Type*} {mΩ : (i : ι) → MeasurableSpace (Ω i)}
+    {μ : (i : ι) → Measure (Ω i)} [∀ i, IsProbabilityMeasure (μ i)] (i : ι) :
+    HasLaw (fun ω ↦ ω i) (μ i) (infinitePi (fun i ↦ μ i)) :=
+  .mk (Measurable.aemeasurable (by measurability)) (infinitePi_map_eval _ i)
 
-theorem hasLaw_infinitePi
-    {ι Ω : Type*} {mΩ : MeasurableSpace Ω} {P : Measure Ω} [IsProbabilityMeasure P]
-    {e : ι → ι} (he : Injective e) :
-    (infinitePi (fun (_ : ι) ↦ P)).map (fun ω i ↦ ω (e i)) = infinitePi (fun _ ↦ P) := by
+theorem map_infinitePi_infinitePi_of_inj {ι : Type*} {Ω : ι → Type*}
+    {mΩ : (i : ι) → MeasurableSpace (Ω i)} {μ : (i : ι) → Measure (Ω i)}
+    [∀ i, IsProbabilityMeasure (μ i)] {e : ι → ι} (he : Injective e) :
+    (infinitePi μ).map (fun ω i ↦ ω (e i)) = infinitePi (fun i ↦ μ (e i)) := by
   apply HasLaw.map_eq
-  refine iIndepFun.hasLaw_infinitePi ?_ ?_ (by apply Measurable.aemeasurable; measurability)
-  · exact fun _ ↦ by apply hasLaw_infinitePi_eval (μ := fun _ ↦ P)
-  · have := iIndepFun_infinitePi (P := fun (_ : ι) ↦ P) (X := fun x ω ↦ ω) (by measurability)
+  refine iIndepFun.hasLaw_infinitePi ?_ ?_ <| Measurable.aemeasurable <| by measurability
+  · exact fun _ ↦ by apply hasLaw_infinitePi_eval
+  · have := iIndepFun_infinitePi (P := μ) (X := fun x ω ↦ ω) (by measurability)
     exact iIndepFun.precomp he this
 
 -- If the laws of an ae convergent sequence converge, then the limit must be law of the limit
@@ -166,7 +163,7 @@ theorem tendsto_μ_θ :
   convert this.tendsto with n
   · rw [μ, ← map_map (by measurability) (by measurability)]
     congr; symm
-    refine hasLaw_infinitePi ?_
+    refine map_infinitePi_infinitePi_of_inj ?_
     apply Function.HasLeftInverse.injective
     refine ⟨fun m ↦
       if m = 0 then n
@@ -178,7 +175,7 @@ theorem tendsto_μ_θ :
     apply IndepFun.hasLaw_prod
     · refine ⟨?_, ?_⟩
       · apply Measurable.aemeasurable; measurability
-      apply hasLaw_infinitePi
+      apply map_infinitePi_infinitePi_of_inj
       intro i j hij
       grind
     · apply hasLaw_infinitePi_eval (μ := fun _ ↦ ρ)
@@ -286,7 +283,6 @@ end StrongSkorokhod
 
 end
 
-
 -- If the set of measures is tight, it suffices to check the limsup
 -- condition for compact sets in the portmanteau theorem.
 theorem MeasureTheory.tendsto_of_forall_isCompact_limsup_le
@@ -326,28 +322,3 @@ theorem MeasureTheory.tendsto_of_forall_isCompact_limsup_le
     apply le_trans _ hK_le
     apply measure_mono
     simp
-
--- A set of measures on a product space is tight if both marginals are tight
-lemma isTightMeasureSet_prodMk
-    {α β : Type*} [MeasurableSpace α] [MeasurableSpace β]
-    [TopologicalSpace α] [TopologicalSpace β]
-    [OpensMeasurableSpace α] [OpensMeasurableSpace β]
-    [T2Space α] [T2Space β]
-    (μ : Set (Measure (α × β)))
-    (hμ_1 : IsTightMeasureSet (fst '' μ))
-    (hμ_2 : IsTightMeasureSet (snd '' μ)) :
-    IsTightMeasureSet μ := by
-  rw [isTightMeasureSet_iff_exists_isCompact_measure_compl_le] at hμ_1 hμ_2 ⊢
-  intro ε hε
-  obtain ⟨K1, hKc_1, hKm_le_1⟩ := hμ_1 (ε / 2) (by aesop)
-  obtain ⟨K2, hKc_2, hKm_le_2⟩ := hμ_2 (ε / 2) (by aesop)
-  refine ⟨K1 ×ˢ K2, hKc_1.prod hKc_2, fun κ hκ_mem ↦ ?_⟩
-  have : (K1 ×ˢ K2)ᶜ ⊆ (K1 ×ˢ Set.univ)ᶜ ∪ (Set.univ ×ˢ K2)ᶜ := by grind
-  grw [measure_mono this, measure_union_le, ← ENNReal.add_halves (a := ε)]
-  apply add_le_add
-  · convert hKm_le_1 κ.fst (by aesop)
-    rw [Measure.fst_apply <| MeasurableSet.compl hKc_1.measurableSet]
-    congr; aesop
-  · convert hKm_le_2 κ.snd (by aesop)
-    rw [Measure.snd_apply <| MeasurableSet.compl hKc_2.measurableSet]
-    congr; aesop
