@@ -17,13 +17,16 @@ noncomputable section
 
 section Auxiliary
 
+/-- Is this necessary? -/
 lemma MeasureTheory.Measure.toProbabilityMeasure_inj {Ω : Type*} [MeasurableSpace Ω]
     {μ : Measure Ω} {ν : Measure Ω} (hμ : IsProbabilityMeasure μ) (hν : IsProbabilityMeasure ν) :
     μ = ν ↔ (⟨μ, hμ⟩ : ProbabilityMeasure Ω) = ⟨ν, hν⟩ := by simp
 
+/-- Is this necessary? -/
 def MeasureTheory.Measure.toProbabilityMeasure {Ω : Type*} [MeasurableSpace Ω] (μ : Measure Ω)
     [IsProbabilityMeasure μ] : ProbabilityMeasure Ω := ⟨μ, inferInstance⟩
 
+/-- Already in a PR -/
 theorem MeasureTheory.tendstoInDistribution_of_ae_tendsto
     {E Ω' : Type*} {m' : MeasurableSpace Ω'} {μ' : Measure Ω'} [IsProbabilityMeasure μ']
     {mE : MeasurableSpace E} {Z : Ω' → E} [TopologicalSpace E]
@@ -48,11 +51,13 @@ theorem MeasureTheory.tendstoInDistribution_of_ae_tendsto
   · simp
   filter_upwards [h] with ω hω using (f.continuous.tendsto (Z ω)).comp hω
 
+/-- Already in a PR -/
 theorem hasLaw_infinitePi_eval {ι : Type*} {Ω : ι → Type*} {mΩ : (i : ι) → MeasurableSpace (Ω i)}
     {μ : (i : ι) → Measure (Ω i)} [∀ i, IsProbabilityMeasure (μ i)] (i : ι) :
     HasLaw (fun ω ↦ ω i) (μ i) (infinitePi (fun i ↦ μ i)) :=
   .mk (Measurable.aemeasurable (by measurability)) (infinitePi_map_eval _ i)
 
+/-- Already in a PR -/
 theorem map_infinitePi_infinitePi_of_inj {ι : Type*} {Ω : ι → Type*}
     {mΩ : (i : ι) → MeasurableSpace (Ω i)} {μ : (i : ι) → Measure (Ω i)}
     [∀ i, IsProbabilityMeasure (μ i)] {e : ι → ι} (he : Injective e) :
@@ -63,7 +68,7 @@ theorem map_infinitePi_infinitePi_of_inj {ι : Type*} {Ω : ι → Type*}
   · have := iIndepFun_infinitePi (P := μ) (X := fun x ω ↦ ω) (by measurability)
     exact iIndepFun.precomp he this
 
--- If the laws of an ae convergent sequence converge, then the limit must be law of the limit
+/-- Get rid of this -/
 lemma hasLaw_of_ae_tendsto_of_hasLaw
     {Ω : Type*} {α : Type*} [MeasurableSpace Ω] [MeasurableSpace α]
     [TopologicalSpace α] [BorelSpace α] [TopologicalSpace.PseudoMetrizableSpace α]
@@ -84,22 +89,6 @@ lemma hasLaw_of_ae_tendsto_of_hasLaw
   apply tendsto_nhds_unique this
   convert h_tt_law with n
   · exact (h_law n).map_eq
-
--- The law of an ae convergent sequence converges to the law of the limit
-lemma tendsto_of_ae_tendsto_of_hasLaw
-    {Ω : Type*} {α : Type*} [MeasurableSpace Ω] [MeasurableSpace α]
-    [TopologicalSpace α] [BorelSpace α] [TopologicalSpace.PseudoMetrizableSpace α]
-    {μ : Measure Ω} [IsProbabilityMeasure μ]
-    {ν : ℕ → Measure α} [hν : ∀ n, IsProbabilityMeasure (ν n)]
-    {ν_lim : Measure α} [hν_lim : IsProbabilityMeasure ν_lim]
-    {X : ℕ → Ω → α} {X_lim : Ω → α}
-    (h_tt_ae : ∀ᵐ ω ∂μ, Tendsto (fun n ↦ X n ω) atTop (nhds (X_lim ω)))
-    (h_law : ∀ n, HasLaw (X n) (ν n) μ)
-    (h_law_lim : HasLaw X_lim ν_lim μ) :
-      Tendsto (fun n ↦ (ν n).toProbabilityMeasure) atTop (nhds ν_lim.toProbabilityMeasure) := by
-  convert (tendstoInDistribution_of_ae_tendsto h_tt_ae (by measurability)).tendsto with n
-  · exact (h_law n).map_eq.symm
-  · exact h_law_lim.map_eq.symm
 
 end Auxiliary
 
@@ -285,6 +274,7 @@ end
 
 -- If the set of measures is tight, it suffices to check the limsup
 -- condition for compact sets in the portmanteau theorem.
+-- TODO: upstream
 theorem MeasureTheory.tendsto_of_forall_isCompact_limsup_le
     {Ω ι : Type*} {mΩ : MeasurableSpace Ω} [TopologicalSpace Ω]
     [OpensMeasurableSpace Ω] [T2Space Ω]
@@ -293,7 +283,7 @@ theorem MeasureTheory.tendsto_of_forall_isCompact_limsup_le
     {μ : Measure Ω} [IsProbabilityMeasure μ]
     {μs : ι → Measure Ω} [∀ i, IsProbabilityMeasure (μs i)]
     (h_tight : IsTightMeasureSet (μs '' Set.univ))
-    (h : ∀ (F : Set Ω), IsCompact F → Filter.limsup
+    (h : ∀ (F : Set Ω), IsCompact F → limsup
       (fun (i : ι) => (μs i) F) L ≤ μ F) :
     Filter.Tendsto (fun i ↦ (μs i).toProbabilityMeasure) L
       (nhds (μ.toProbabilityMeasure)) := by
