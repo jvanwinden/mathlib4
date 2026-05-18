@@ -277,35 +277,29 @@ theorem MeasureTheory.tendsto_of_forall_isCompact_limsup_le
     {Ω ι : Type*} {mΩ : MeasurableSpace Ω} [TopologicalSpace Ω]
     [OpensMeasurableSpace Ω] [T2Space Ω]
     {L : Filter ι} [NeBot L] [L.IsCountablyGenerated]
-    {μ : Measure Ω} [IsProbabilityMeasure μ]
-    {μs : ι → Measure Ω} [∀ i, IsProbabilityMeasure (μs i)]
-    (h_tight : IsTightMeasureSet (μs '' Set.univ))
+    {μs : ι → ProbabilityMeasure Ω} {μ : ProbabilityMeasure Ω}
+    (h_tight : IsTightMeasureSet ((ProbabilityMeasure.toMeasure ∘ μs) '' Set.univ))
     (h : ∀ (F : Set Ω), IsCompact F → limsup
       (fun (i : ι) => (μs i) F) L ≤ μ F) :
-    Tendsto (fun i ↦ (μs i).toProbabilityMeasure) L
-      (nhds (μ.toProbabilityMeasure)) := by
-  apply tendsto_of_forall_isClosed_limsup_le
-  intro F hF_closed
-  rw [← ENNReal.coe_le_coe, ENNReal.ofNNReal_limsup]
-  swap; · exact isBoundedUnder_of_eventually_le (a := 1) (by aesop)
-  apply le_of_forall_pos_le_add
-  intro ε hε
+    Tendsto (fun i ↦ (μs i)) L (nhds μ) := by
+  refine tendsto_of_forall_isClosed_limsup_le (fun F hF_closed ↦ ?_)
+  refine le_of_forall_pos_le_add <| fun ε hε ↦ ?_
   rw [isTightMeasureSet_iff_exists_isCompact_measure_compl_le] at h_tight
   obtain ⟨K, hKc, hK_le⟩ := h_tight ε (by positivity)
   specialize h (F ∩ K) <| hKc.inter_left hF_closed
-  simp_rw [ProbabilityMeasure.ennreal_coeFn_eq_coeFn_toMeasure]
-  simp_rw [toProbabilityMeasure, ProbabilityMeasure.coe_mk]
-  grw [limsup_le_limsup (v := fun i ↦ (μs i (F ∩ K)) + ε)]
-  · rw [limsup_add_const _ _ _ (by isBoundedDefault) (by isBoundedDefault)]
-    apply add_le_add _ (by rfl)
-    grw [h]
-    apply measure_mono
-    simp
+  grw [limsup_le_limsup (v := fun i ↦ (μs i (F ∩ K)) + ε) (hv := ?_)]
+  · rw [limsup_add_const _ _ _ ?_ (by isBoundedDefault)]
+    · apply add_le_add _ (by rfl)
+      grw [h]
+      sorry
+    · sorry
   · apply Eventually.of_forall
-    intro i; simp only
-    rw [← measure_inter_add_diff _ hKc.measurableSet]
-    apply add_le_add (by rfl)
-    specialize hK_le (μs i) (by simp)
-    apply le_trans _ hK_le
-    apply measure_mono
-    simp
+    intro i; simp
+    sorry
+    -- rw [← measure_inter_add_diff _ hKc.measurableSet]
+    -- apply add_le_add (by rfl)
+    -- specialize hK_le (μs i) (by simp)
+    -- apply le_trans _ hK_le
+    -- apply measure_mono
+    -- simp
+  · sorry
