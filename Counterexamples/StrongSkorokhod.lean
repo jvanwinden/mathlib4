@@ -68,29 +68,6 @@ theorem map_infinitePi_infinitePi_of_inj {ι : Type*} {Ω : ι → Type*}
   · have := iIndepFun_infinitePi (P := μ) (X := fun x ω ↦ ω) (by measurability)
     exact iIndepFun.precomp he this
 
-/-- Identify law of the limit -/
-lemma hasLaw_of_tendstoInDistribution
-    {Ω : Type*} {α : Type*} [MeasurableSpace Ω] [MeasurableSpace α]
-    [TopologicalSpace α] [BorelSpace α] [TopologicalSpace.PseudoMetrizableSpace α]
-    {μ : ℕ → Measure Ω} [∀ n, IsProbabilityMeasure (μ n)]
-    {μ_lim : Measure Ω} [hν_lim : IsProbabilityMeasure μ_lim]
-    {ν : ℕ → Measure α} [hν : ∀ n, IsProbabilityMeasure (ν n)]
-    {ν_lim : Measure α} [hν_lim : IsProbabilityMeasure ν_lim]
-    {X : ℕ → Ω → α} {X_lim : Ω → α}
-    (h_law : ∀ n, HasLaw (X n) (ν n) (μ n))
-    (h_tt_1 : TendstoInDistribution X atTop X_lim μ μ_lim)
-    (h_tt_law : Tendsto (β := ProbabilityMeasure _)
-      (fun n ↦ ⟨(ν n), inferInstance⟩) atTop
-      (nhds ⟨ν_lim, inferInstance⟩)) : HasLaw X_lim ν_lim μ_lim := by
-  have := h_tt_1.aemeasurable_limit
-  have := h_tt_1.tendsto
-  refine ⟨by measurability, ?_⟩
-  rw [toProbabilityMeasure_inj ?_ (inferInstance)]
-  swap; · exact isProbabilityMeasure_map (by measurability)
-  apply tendsto_nhds_unique this
-  convert h_tt_law with n
-  · exact (h_law n).map_eq
-
 end Auxiliary
 
 section StrongSkorokhod
@@ -202,6 +179,7 @@ theorem tendsto_μ_θ :
 theorem measure_const_of_strong_skorokhod
     {Ω' : Type*} [MeasurableSpace Ω'] {P' : Measure Ω'} [IsProbabilityMeasure P']
     {A' : Ω' → U} {B' : ℕ → Ω' → V} {B'_lim : Ω' → V}
+    (hm₁ : ∀ n, AEMeasurable (B' n) P') (hm₂ : AEMeasurable B'_lim P')
     (h_law : ∀ n, HasLaw (fun ω' ↦ (A' ω', B' n ω')) (μ ρ n) P')
     (h_tt : ∀ᵐ ω' ∂P', Tendsto (fun n ↦ B' n ω') atTop (nhds (B'_lim ω'))) :
     ∃ x : V, ρ = dirac x := by
@@ -229,12 +207,27 @@ theorem measure_const_of_strong_skorokhod
   -- We will prove this by approximating (B'_lim, B'_lim) in two different ways
   trans P'.map (fun ω' ↦ (B'_lim ω', B'_lim ω'))
   · symm
-    apply HasLaw.map_eq
-    -- Approximate using n ↦ (B n, B (n + 1))
-    apply hasLaw_of_tendstoInDistribution
-      (μ := fun _ ↦ P') (ν := fun _ ↦ ρ.prod ρ)
-    · intro n
+    rw [toProbabilityMeasure_inj ?_ ?_]
+    rotate_left
+    · refine isProbabilityMeasure_map (by measurability)
+    · exact prod.instIsProbabilityMeasure ρ ρ
+    apply tendsto_nhds_unique (l := atTop) (X := ProbabilityMeasure _)
+      (f := fun n ↦ ⟨P'.map (fun ω ↦ (B' n ω, B' (n + 1) ω)), ?_⟩)
+    rotate_right
+    · exact isProbabilityMeasure_map <| by measurability
+    · apply TendstoInDistribution.tendsto
+      apply tendstoInDistribution_of_ae_tendsto
+      · filter_upwards [h_tt] with ω hω
+        refine (Prod.tendsto_iff _ _).mpr ⟨hω, ?_⟩
+        exact (Filter.tendsto_add_atTop_iff_nat 1).mpr hω
+      · intro i
+        measurability
+    · apply EventuallyEq.tendsto
+      apply Eventually.of_forall
+      intro n
       -- Exploit that A' ω' n = B' n ω almost surely
+      apply Subtype.ext
+      apply HasLaw.map_eq
       apply HasLaw.congr (X := fun ω' ↦ (A' ω' n, A' ω' (n + 1)))
       · apply IdentDistrib.hasLaw (f := fun ω ↦ (A ω n, A ω (n + 1))) (μ := (θ ρ))
         · exact (h_id 0).comp (u := fun (u, v) ↦ (u n, u (n + 1))) (by measurability)
@@ -250,29 +243,28 @@ theorem measure_const_of_strong_skorokhod
           apply this.ae_snd (p := fun u ↦ u.1 = u.2) (by measurability)
           simp
         filter_upwards [A'_eq_B' n, A'_eq_B' (n + 1)] using by aesop
-    · apply tendstoInDistribution_of_ae_tendsto
-      · filter_upwards [h_tt] with ω hω
-        refine (Prod.tendsto_iff _ _).mpr ⟨hω, ?_⟩
-        exact (Filter.tendsto_add_atTop_iff_nat 1).mpr hω
-      · intro i
-        apply Measurable.aemeasurable
-        sorry -- mean
-    · simp
-  · apply HasLaw.map_eq
-    -- Approximate using n ↦ (B n, B n)
-    apply hasLaw_of_tendstoInDistribution (μ := fun _ ↦ P')
-      (ν := fun _ ↦ ρ.map (fun v ↦ (v, v)))
-    · intro n
+  · rw [toProbabilityMeasure_inj ?_ ?_]
+    rotate_left
+    · exact isProbabilityMeasure_map <| by measurability
+    · exact isProbabilityMeasure_map <| by measurability
+    apply tendsto_nhds_unique (l := atTop) (X := ProbabilityMeasure _)
+      (f := fun n ↦ ⟨P'.map (fun ω ↦ (B' n ω, B' n ω)), ?_⟩)
+    rotate_right
+    · exact isProbabilityMeasure_map <| by measurability
+    · apply TendstoInDistribution.tendsto
+      apply tendstoInDistribution_of_ae_tendsto
+      · filter_upwards [h_tt] using by simp [Prod.tendsto_iff]
+      · measurability
+    · apply EventuallyEq.tendsto
+      apply Eventually.of_forall
+      intro n
+      apply Subtype.ext
+      apply HasLaw.map_eq
       have := (h_id n).comp (u := fun (u, v) ↦ (v, v)) (by measurability)
       apply this.hasLaw
       apply HasLaw.fun_comp (Y := fun v ↦ (v, v)) (μ := ρ)
       · exact ⟨by measurability, rfl⟩
       apply hasLaw_infinitePi_eval
-    · apply tendstoInDistribution_of_ae_tendsto
-      · filter_upwards [h_tt] using by simp [Prod.tendsto_iff]
-      · intro i; apply Measurable.aemeasurable
-        sorry
-    · simp
 
 end StrongSkorokhod
 
