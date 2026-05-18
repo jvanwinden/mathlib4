@@ -69,42 +69,21 @@ theorem map_infinitePi_infinitePi_of_inj {ι : Type*} {Ω : ι → Type*}
     exact iIndepFun.precomp he this
 
 /-- Identify law of the limit -/
-lemma hasLaw_of_ae_tendsto_of_hasLaw'
+lemma hasLaw_of_tendstoInDistribution
     {Ω : Type*} {α : Type*} [MeasurableSpace Ω] [MeasurableSpace α]
     [TopologicalSpace α] [BorelSpace α] [TopologicalSpace.PseudoMetrizableSpace α]
-    {μ : Measure Ω} [IsProbabilityMeasure μ]
+    {μ : ℕ → Measure Ω} [∀ n, IsProbabilityMeasure (μ n)]
+    {μ_lim : Measure Ω} [hν_lim : IsProbabilityMeasure μ_lim]
     {ν : ℕ → Measure α} [hν : ∀ n, IsProbabilityMeasure (ν n)]
     {ν_lim : Measure α} [hν_lim : IsProbabilityMeasure ν_lim]
     {X : ℕ → Ω → α} {X_lim : Ω → α}
-    (h_law : ∀ n, HasLaw (X n) (ν n) μ)
-    (h_tt_1 : TendstoInDistribution X atTop X_lim (fun _ ↦ μ) μ)
+    (h_law : ∀ n, HasLaw (X n) (ν n) (μ n))
+    (h_tt_1 : TendstoInDistribution X atTop X_lim μ μ_lim)
     (h_tt_law : Tendsto (β := ProbabilityMeasure _)
       (fun n ↦ ⟨(ν n), inferInstance⟩) atTop
-      (nhds ⟨ν_lim, inferInstance⟩)) : HasLaw X_lim ν_lim μ := by
-  -- todo: clean up this proof to make use of tendsto_of_ae_tendsto_of_hasLaw
+      (nhds ⟨ν_lim, inferInstance⟩)) : HasLaw X_lim ν_lim μ_lim := by
+  have := h_tt_1.aemeasurable_limit
   have := h_tt_1.tendsto
-  refine ⟨by sorry, ?_⟩
-  rw [toProbabilityMeasure_inj ?_ (inferInstance)]
-  swap; · exact isProbabilityMeasure_map (by sorry)
-  apply tendsto_nhds_unique this
-  convert h_tt_law with n
-  · exact (h_law n).map_eq
-
-/-- Get rid of this -/
-lemma hasLaw_of_ae_tendsto_of_hasLaw
-    {Ω : Type*} {α : Type*} [MeasurableSpace Ω] [MeasurableSpace α]
-    [TopologicalSpace α] [BorelSpace α] [TopologicalSpace.PseudoMetrizableSpace α]
-    {μ : Measure Ω} [IsProbabilityMeasure μ]
-    {ν : ℕ → Measure α} [hν : ∀ n, IsProbabilityMeasure (ν n)]
-    {ν_lim : Measure α} [hν_lim : IsProbabilityMeasure ν_lim]
-    {X : ℕ → Ω → α} {X_lim : Ω → α}
-    (h_law : ∀ n, HasLaw (X n) (ν n) μ)
-    (h_tt_ae : ∀ᵐ ω ∂μ, Tendsto (fun n ↦ X n ω) atTop (nhds (X_lim ω)))
-    (h_tt_law : Tendsto (fun n ↦ (ν n).toProbabilityMeasure) atTop
-      (nhds ν_lim.toProbabilityMeasure)) : HasLaw X_lim ν_lim μ := by
-  -- todo: clean up this proof to make use of tendsto_of_ae_tendsto_of_hasLaw
-  have := aemeasurable_of_tendsto_metrizable_ae atTop (by measurability) h_tt_ae
-  have := (tendstoInDistribution_of_ae_tendsto h_tt_ae (by measurability)).tendsto
   refine ⟨by measurability, ?_⟩
   rw [toProbabilityMeasure_inj ?_ (inferInstance)]
   swap; · exact isProbabilityMeasure_map (by measurability)
@@ -252,9 +231,8 @@ theorem measure_const_of_strong_skorokhod
   · symm
     apply HasLaw.map_eq
     -- Approximate using n ↦ (B n, B (n + 1))
-    apply hasLaw_of_ae_tendsto_of_hasLaw
-      (X := fun n ω ↦ (B' n ω, B' (n + 1) ω))
-      (ν := fun _ ↦ ρ.prod ρ)
+    apply hasLaw_of_tendstoInDistribution
+      (μ := fun _ ↦ P') (ν := fun _ ↦ ρ.prod ρ)
     · intro n
       -- Exploit that A' ω' n = B' n ω almost surely
       apply HasLaw.congr (X := fun ω' ↦ (A' ω' n, A' ω' (n + 1)))
@@ -272,14 +250,17 @@ theorem measure_const_of_strong_skorokhod
           apply this.ae_snd (p := fun u ↦ u.1 = u.2) (by measurability)
           simp
         filter_upwards [A'_eq_B' n, A'_eq_B' (n + 1)] using by aesop
-    · filter_upwards [h_tt] with ω hω
-      refine (Prod.tendsto_iff _ _).mpr ⟨hω, ?_⟩
-      exact (Filter.tendsto_add_atTop_iff_nat 1).mpr hω
-    simp
+    · apply tendstoInDistribution_of_ae_tendsto
+      · filter_upwards [h_tt] with ω hω
+        refine (Prod.tendsto_iff _ _).mpr ⟨hω, ?_⟩
+        exact (Filter.tendsto_add_atTop_iff_nat 1).mpr hω
+      · intro i
+        apply Measurable.aemeasurable
+        sorry -- mean
+    · simp
   · apply HasLaw.map_eq
     -- Approximate using n ↦ (B n, B n)
-    apply hasLaw_of_ae_tendsto_of_hasLaw
-      (X := (fun n ω' ↦ (B' n ω', B' n ω')))
+    apply hasLaw_of_tendstoInDistribution (μ := fun _ ↦ P')
       (ν := fun _ ↦ ρ.map (fun v ↦ (v, v)))
     · intro n
       have := (h_id n).comp (u := fun (u, v) ↦ (v, v)) (by measurability)
@@ -287,7 +268,10 @@ theorem measure_const_of_strong_skorokhod
       apply HasLaw.fun_comp (Y := fun v ↦ (v, v)) (μ := ρ)
       · exact ⟨by measurability, rfl⟩
       apply hasLaw_infinitePi_eval
-    · filter_upwards [h_tt] using by simp [Prod.tendsto_iff]
+    · apply tendstoInDistribution_of_ae_tendsto
+      · filter_upwards [h_tt] using by simp [Prod.tendsto_iff]
+      · intro i; apply Measurable.aemeasurable
+        sorry
     · simp
 
 end StrongSkorokhod
