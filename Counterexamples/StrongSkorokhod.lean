@@ -68,6 +68,28 @@ theorem map_infinitePi_infinitePi_of_inj {ι : Type*} {Ω : ι → Type*}
   · have := iIndepFun_infinitePi (P := μ) (X := fun x ω ↦ ω) (by measurability)
     exact iIndepFun.precomp he this
 
+/-- Identify law of the limit -/
+lemma hasLaw_of_ae_tendsto_of_hasLaw'
+    {Ω : Type*} {α : Type*} [MeasurableSpace Ω] [MeasurableSpace α]
+    [TopologicalSpace α] [BorelSpace α] [TopologicalSpace.PseudoMetrizableSpace α]
+    {μ : Measure Ω} [IsProbabilityMeasure μ]
+    {ν : ℕ → Measure α} [hν : ∀ n, IsProbabilityMeasure (ν n)]
+    {ν_lim : Measure α} [hν_lim : IsProbabilityMeasure ν_lim]
+    {X : ℕ → Ω → α} {X_lim : Ω → α}
+    (h_law : ∀ n, HasLaw (X n) (ν n) μ)
+    (h_tt_1 : TendstoInDistribution X atTop X_lim (fun _ ↦ μ) μ)
+    (h_tt_law : Tendsto (β := ProbabilityMeasure _)
+      (fun n ↦ ⟨(ν n), inferInstance⟩) atTop
+      (nhds ⟨ν_lim, inferInstance⟩)) : HasLaw X_lim ν_lim μ := by
+  -- todo: clean up this proof to make use of tendsto_of_ae_tendsto_of_hasLaw
+  have := h_tt_1.tendsto
+  refine ⟨by sorry, ?_⟩
+  rw [toProbabilityMeasure_inj ?_ (inferInstance)]
+  swap; · exact isProbabilityMeasure_map (by sorry)
+  apply tendsto_nhds_unique this
+  convert h_tt_law with n
+  · exact (h_law n).map_eq
+
 /-- Get rid of this -/
 lemma hasLaw_of_ae_tendsto_of_hasLaw
     {Ω : Type*} {α : Type*} [MeasurableSpace Ω] [MeasurableSpace α]
@@ -278,14 +300,13 @@ end
 theorem MeasureTheory.tendsto_of_forall_isCompact_limsup_le
     {Ω ι : Type*} {mΩ : MeasurableSpace Ω} [TopologicalSpace Ω]
     [OpensMeasurableSpace Ω] [T2Space Ω]
-    {L : Filter ι} [L.IsCountablyGenerated]
-    [NeBot L]
+    {L : Filter ι} [NeBot L] [L.IsCountablyGenerated]
     {μ : Measure Ω} [IsProbabilityMeasure μ]
     {μs : ι → Measure Ω} [∀ i, IsProbabilityMeasure (μs i)]
     (h_tight : IsTightMeasureSet (μs '' Set.univ))
     (h : ∀ (F : Set Ω), IsCompact F → limsup
       (fun (i : ι) => (μs i) F) L ≤ μ F) :
-    Filter.Tendsto (fun i ↦ (μs i).toProbabilityMeasure) L
+    Tendsto (fun i ↦ (μs i).toProbabilityMeasure) L
       (nhds (μ.toProbabilityMeasure)) := by
   apply tendsto_of_forall_isClosed_limsup_le
   intro F hF_closed
