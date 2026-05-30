@@ -48,16 +48,16 @@ theorem tendsto_μ_θ :
     letI : MeasurableSpace Ω := MeasurableSpace.pi
     Tendsto (fun n ↦ (μ ρ n).toProbabilityMeasure) atTop
     (nhds ((θ ρ).prod ρ).toProbabilityMeasure) := by
-  let P m (n : ℕ) := if n < m then n + 1 else if n = m then 0 else n
-  let Q m (ω : Ω) : Ω := fun n ↦ ω (P m n)
-  have : TendstoInDistribution (fun n ↦ (fun ω ↦ (A ω, B n ω)) ∘ Q n) (atTop)
+  let T m (ω : Ω) : Ω := fun n ↦ ω (if n < m then n + 1 else if n = m then 0 else n)
+  have : TendstoInDistribution (fun n ↦ (fun ω ↦ (A ω, B n ω)) ∘ T n) (atTop)
       (fun ω : Ω ↦ ((fun n ↦ ω (n + 1)), ω 0)) (fun _ ↦ (θ ρ)) (θ ρ) := by
     refine tendstoInDistribution_of_ae_tendsto (by fun_prop) (by fun_prop) <| .of_forall fun ω ↦ ?_
     refine (Prod.tendsto_iff _ _).mpr ⟨?_, ?_⟩
     · refine tendsto_pi_nhds.mpr fun n ↦ EventuallyEq.tendsto ?_
       filter_upwards [eventually_ge_atTop (n + 1)] with m hm using by aesop
     · exact EventuallyEq.tendsto <| .of_forall <| by grind
-  convert this.tendsto with n; all_goals symm
+  convert this.tendsto with n
+  all_goals symm
   · rw [μ, ← map_map (by fun_prop) (by fun_prop)]
     congr
     refine map_infinitePi_infinitePi_of_inj <| HasLeftInverse.injective ?_
@@ -75,7 +75,6 @@ theorem tendsto_μ_θ :
 -- Theorem 2: If there exist random variables A' and B' n, such that
 -- (A', B' n) has law μ n and B' n converges almost surely,
 -- then ρ must be a Dirac measure.
--- TODO: show that convergence along a sequence suffices for the conclusion
 theorem measure_const_of_strong_skorokhod
     {Ω' : Type*} [MeasurableSpace Ω'] {P' : Measure Ω'} [IsProbabilityMeasure P']
     {A' : Ω' → U} {B' : ℕ → Ω' → V} {B'_lim : Ω' → V}
