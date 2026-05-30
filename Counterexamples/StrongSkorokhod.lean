@@ -186,5 +186,3 @@ theorem measure_const_of_strong_skorokhod
 end StrongSkorokhod
 
 end
-
-#min_imports
