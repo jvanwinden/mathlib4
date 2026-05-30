@@ -1,15 +1,10 @@
-import Mathlib.Probability.HasLaw
-import Mathlib.Probability.IdentDistrib
-import Mathlib.Probability.ProductMeasure
-import Mathlib.Probability.Independence.InfinitePi
-import Mathlib.MeasureTheory.Measure.ProbabilityMeasure
 import Mathlib.MeasureTheory.Function.ConvergenceInDistribution
+import Mathlib.MeasureTheory.Measure.RegularityCompacts
 import Mathlib.MeasureTheory.Measure.Typeclasses.ZeroOne
-import Mathlib.MeasureTheory.Measure.Tight
-import Mathlib.MeasureTheory.Measure.Prokhorov
-import Mathlib.MeasureTheory.Measure.Portmanteau
-import Mathlib.Probability.IdentDistribIndep
+import Mathlib.Probability.Independence.InfinitePi
 import Mathlib.Probability.Independence.Process.Basic
+import Mathlib.Topology.Compactness.Paracompact
+import Mathlib.Topology.Separation.CompletelyRegular
 
 open MeasureTheory ProbabilityTheory Filter Function Measure
 
@@ -194,3 +189,5 @@ theorem measure_const_of_strong_skorokhod
 end StrongSkorokhod
 
 end
+
+#min_imports
