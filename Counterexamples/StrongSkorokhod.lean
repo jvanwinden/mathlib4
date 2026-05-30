@@ -48,69 +48,29 @@ theorem tendsto_μ_θ :
     letI : MeasurableSpace Ω := MeasurableSpace.pi
     Tendsto (fun n ↦ (μ ρ n).toProbabilityMeasure) atTop
     (nhds ((θ ρ).prod ρ).toProbabilityMeasure) := by
-  let P m (n : ℕ) :=
-    if n < m then n + 1
-    else if n = m then 0
-    else n
+  let P m (n : ℕ) := if n < m then n + 1 else if n = m then 0 else n
   let Q m (ω : Ω) : Ω := fun n ↦ ω (P m n)
-  have : TendstoInDistribution
-      (fun n ↦ (fun ω ↦ (A ω, B n ω)) ∘ Q n)
-      (atTop)
-      (fun ω : Ω ↦ ((fun n ↦ ω (n + 1)), ω 0))
-      (fun _ ↦ (θ ρ)) (θ ρ) := by
-    apply MeasureTheory.tendstoInDistribution_of_ae_tendsto (by fun_prop) (by fun_prop)
-    apply Eventually.of_forall
-    intro ω
-    rw [Prod.tendsto_iff]
-    refine ⟨?_, ?_⟩
-    · rw [tendsto_pi_nhds]
-      intro n
-      apply EventuallyEq.tendsto
-      filter_upwards [eventually_ge_atTop (n + 1)] with m hm
-      aesop
-    apply EventuallyEq.tendsto
-    apply Eventually.of_forall
-    grind
-  convert this.tendsto with n
+  have : TendstoInDistribution (fun n ↦ (fun ω ↦ (A ω, B n ω)) ∘ Q n) (atTop)
+      (fun ω : Ω ↦ ((fun n ↦ ω (n + 1)), ω 0)) (fun _ ↦ (θ ρ)) (θ ρ) := by
+    refine tendstoInDistribution_of_ae_tendsto (by fun_prop) (by fun_prop) <| .of_forall fun ω ↦ ?_
+    refine (Prod.tendsto_iff _ _).mpr ⟨?_, ?_⟩
+    · refine tendsto_pi_nhds.mpr fun n ↦ EventuallyEq.tendsto ?_
+      filter_upwards [eventually_ge_atTop (n + 1)] with m hm using by aesop
+    · exact EventuallyEq.tendsto <| .of_forall <| by grind
+  convert this.tendsto with n; all_goals symm
   · rw [μ, ← map_map (by fun_prop) (by fun_prop)]
-    congr; symm
-    refine map_infinitePi_infinitePi_of_inj ?_
-    apply Function.HasLeftInverse.injective
-    refine ⟨fun m ↦
-      if m = 0 then n
-      else if m ≤ n then (m - 1)
-      else m, ?_⟩
-    grind
-  · symm
-    apply HasLaw.map_eq
-    apply IndepFun.hasLaw_prod
-    · refine ⟨?_, ?_⟩
-      · apply Measurable.aemeasurable; fun_prop
-      apply map_infinitePi_infinitePi_of_inj
-      intro i j hij
-      grind
-    · apply MeasurePreserving.hasLaw
-      apply measurePreserving_eval_infinitePi
-    · symm;
-      apply ProbabilityTheory.IndepFun.indepFun_process (by fun_prop) (by fun_prop)
-      intro S
-      let T : Finset ℕ := {0}
-      have : (0 ∈ T) := by aesop
-      have := iIndepFun_infinitePi (P := fun (i : ℕ) ↦ ρ) (X := fun _ ω ↦ ω) (by fun_prop)
-      have := iIndepFun.indepFun_finset {0} (S.image (fun n ↦ n + 1)) (by simp) (this) (by fun_prop)
-      rw [IndepFun_iff_Indep] at ⊢ this
-      apply indep_of_indep_of_le_right (indep_of_indep_of_le_left this _)
-      · let S' := (S.image (fun n ↦ n + 1))
-        let g (u : (S' → V)) : (S → V) := fun m ↦ u (⟨(m : ℕ) + 1, by aesop⟩)
-        have : (fun (ω : Ω) (i : S) ↦ ω (i + 1)) = g ∘ (fun (ω : Ω) i ↦ ω i) := by aesop
-        rw [this, ← MeasurableSpace.comap_comp]
-        apply MeasurableSpace.comap_mono ?_
-        exact Measurable.comap_le <| by fun_prop
-      · let g (u : T → V) : V := u ⟨0, by aesop⟩
-        have : (fun ω ↦ ω 0) = g ∘ (fun (a : Ω) i ↦ a i) := by aesop
-        rw [this, ← MeasurableSpace.comap_comp]
-        apply MeasurableSpace.comap_mono ?_
-        exact Measurable.comap_le <| by fun_prop
+    congr
+    refine map_infinitePi_infinitePi_of_inj <| HasLeftInverse.injective ?_
+    exact ⟨fun m ↦ if m = 0 then n else if m ≤ n then (m - 1) else m, by grind⟩
+  · apply (IndepFun.hasLaw_prod _ _ _).map_eq
+    · refine .mk (Measurable.aemeasurable <| by fun_prop) ?_
+      exact map_infinitePi_infinitePi_of_inj <| fun _ ↦ by grind
+    · exact MeasurePreserving.hasLaw <| measurePreserving_eval_infinitePi _ _
+    · refine (IndepFun.indepFun_process (by fun_prop) (by fun_prop) <| fun S ↦ ?_).symm
+      have := iIndepFun_infinitePi (ι := ℕ) (P := fun _ ↦ ρ) (X := fun _ ω ↦ ω) (by fun_prop)
+      have := iIndepFun.indepFun_finset {0} (S.image (fun n ↦ n + 1)) (by aesop) this (by fun_prop)
+      refine this.comp (φ := fun x ↦ x ⟨0, by simp⟩) (ψ := fun x (i : S) ↦ x ⟨i + 1, by simp⟩) ?_ ?_
+      all_goals fun_prop
 
 -- Theorem 2: If there exist random variables A' and B' n, such that
 -- (A', B' n) has law μ n and B' n converges almost surely,
