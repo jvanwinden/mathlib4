@@ -48,6 +48,12 @@ theorem tendsto_μ_θ :
     letI : MeasurableSpace Ω := MeasurableSpace.pi
     Tendsto (fun n ↦ (μ ρ n).toProbabilityMeasure) atTop
     (nhds ((θ ρ).prod ρ).toProbabilityMeasure) := by
+  -- Proof sketch:
+  -- T m is a transformation of Ω, which permutes the sequence (B 0, B 1, ...) to
+  -- (B 1, B 2, ..., B (m - 1), B 0, B m, B (m + 1))
+  -- Since T m is measure preserving, (A, B m) ∘ T m has law μ n
+  -- Moreover, (A, B m) ∘ T m converges almost surely to (A', B') = ((B_1, B_2, ...), B_0).
+  -- Thus, μ n converges to the law (A', B'), which is θ × ρ
   let T m (ω : Ω) : Ω := fun n ↦ ω (if n < m then n + 1 else if n = m then 0 else n)
   have : TendstoInDistribution (fun n ↦ (fun ω ↦ (A ω, B n ω)) ∘ T n) (atTop)
       (fun ω : Ω ↦ ((fun n ↦ ω (n + 1)), ω 0)) (fun _ ↦ (θ ρ)) (θ ρ) := by
