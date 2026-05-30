@@ -26,7 +26,6 @@ lemma MeasureTheory.Measure.toProbabilityMeasure_inj {Ω : Type*} [MeasurableSpa
 def MeasureTheory.Measure.toProbabilityMeasure {Ω : Type*} [MeasurableSpace Ω] (μ : Measure Ω)
     [IsProbabilityMeasure μ] : ProbabilityMeasure Ω := ⟨μ, inferInstance⟩
 
-
 end Auxiliary
 
 section StrongSkorokhod
@@ -48,13 +47,8 @@ abbrev B (n : ℕ) (ω : Ω) : V := ω n
 -- μ is the sequence of measures which will form the counterexample
 def μ (n : ℕ) : Measure (U × V) := (θ ρ).map (f := fun ω ↦ (A ω, B n ω))
 
--- θ, θ × ρ, and μ n are probability measures
-instance : IsProbabilityMeasure (θ ρ) := by apply instIsProbabilityMeasureForallInfinitePi
-
-instance : IsProbabilityMeasure ((θ ρ).prod ρ) := prod.instIsProbabilityMeasure (θ ρ) ρ
-
-instance (n : ℕ) : IsProbabilityMeasure (μ ρ n) := by
-  apply isProbabilityMeasure_map; measurability
+-- Register that μ n is a probability measure
+instance (n : ℕ) : IsProbabilityMeasure (μ ρ n) := isProbabilityMeasure_map (by fun_prop)
 
 -- Theorem 1: The sequence n ↦ μ n converges weakly to θ × ρ
 theorem tendsto_μ_θ :
@@ -72,21 +66,19 @@ theorem tendsto_μ_θ :
       (atTop)
       (fun ω : Ω ↦ ((fun n ↦ ω (n + 1)), ω 0))
       (fun _ ↦ (θ ρ)) (θ ρ) := by
-    apply MeasureTheory.tendstoInDistribution_of_ae_tendsto
-    · fun_prop
-    · fun_prop
-    · apply Eventually.of_forall
-      intro ω
-      rw [Prod.tendsto_iff]
-      refine ⟨?_, ?_⟩
-      · rw [tendsto_pi_nhds]
-        intro n
-        apply EventuallyEq.tendsto
-        filter_upwards [eventually_ge_atTop (n + 1)] with m hm
-        aesop
+    apply MeasureTheory.tendstoInDistribution_of_ae_tendsto (by fun_prop) (by fun_prop)
+    apply Eventually.of_forall
+    intro ω
+    rw [Prod.tendsto_iff]
+    refine ⟨?_, ?_⟩
+    · rw [tendsto_pi_nhds]
+      intro n
       apply EventuallyEq.tendsto
-      apply Eventually.of_forall
-      grind
+      filter_upwards [eventually_ge_atTop (n + 1)] with m hm
+      aesop
+    apply EventuallyEq.tendsto
+    apply Eventually.of_forall
+    grind
   convert this.tendsto with n
   · rw [μ, ← map_map (by measurability) (by measurability)]
     congr; symm
@@ -139,15 +131,14 @@ theorem tendsto_μ_θ :
 theorem measure_const_of_strong_skorokhod
     {Ω' : Type*} [MeasurableSpace Ω'] {P' : Measure Ω'} [IsProbabilityMeasure P']
     {A' : Ω' → U} {B' : ℕ → Ω' → V} {B'_lim : Ω' → V}
-    (hm₁ : ∀ n, AEMeasurable (B' n) P') (hm₂ : AEMeasurable B'_lim P')
     (h_law : ∀ n, HasLaw (fun ω' ↦ (A' ω', B' n ω')) (μ ρ n) P')
     (h_tt : ∀ᵐ ω' ∂P', Tendsto (fun n ↦ B' n ω') atTop (nhds (B'_lim ω'))) :
     ∃ x : V, ρ = dirac x := by
   -- Setup measurability automation
-  have : Measurable A := by measurability
-  have (n : ℕ) : AEMeasurable (fun ω ↦ A ω n) (θ ρ) := Measurable.aemeasurable (by measurability)
-  have (n : ℕ) : Measurable (B n) := by measurability
-  have (n : ℕ) : AEMeasurable (B n) (θ ρ) := by measurability
+  have (n : ℕ) : AEMeasurable (B' n) P' := (h_law n).aemeasurable.snd
+  have : AEMeasurable B'_lim P' := aemeasurable_of_tendsto_metrizable_ae _ (by fun_prop) h_tt
+  have (n : ℕ) : AEMeasurable (fun ω ↦ A ω n) (θ ρ) := Measurable.aemeasurable (by fun_prop)
+  have (n : ℕ) : AEMeasurable (B n) (θ ρ) := by aesop
   haveI : IsProbabilityMeasure (map (fun v ↦ (v, v)) ρ) :=
     isProbabilityMeasure_map (by measurability)
   -- (A, B n) has the same distribution as (A', B' n)
@@ -176,12 +167,10 @@ theorem measure_const_of_strong_skorokhod
     rotate_right
     · exact isProbabilityMeasure_map <| by measurability
     · apply TendstoInDistribution.tendsto
-      apply tendstoInDistribution_of_ae_tendsto
-      · fun_prop
-      · fun_prop
-      · filter_upwards [h_tt] with ω hω
-        refine (Prod.tendsto_iff _ _).mpr ⟨hω, ?_⟩
-        exact (Filter.tendsto_add_atTop_iff_nat 1).mpr hω
+      apply tendstoInDistribution_of_ae_tendsto (by fun_prop) (by fun_prop)
+      filter_upwards [h_tt] with ω hω
+      refine (Prod.tendsto_iff _ _).mpr ⟨hω, ?_⟩
+      exact (Filter.tendsto_add_atTop_iff_nat 1).mpr hω
     · apply EventuallyEq.tendsto
       apply Eventually.of_forall
       intro n
@@ -214,10 +203,8 @@ theorem measure_const_of_strong_skorokhod
     rotate_right
     · exact isProbabilityMeasure_map <| by measurability
     · apply TendstoInDistribution.tendsto
-      apply tendstoInDistribution_of_ae_tendsto
-      · fun_prop
-      · fun_prop
-      · filter_upwards [h_tt] using by simp [Prod.tendsto_iff]
+      apply tendstoInDistribution_of_ae_tendsto (by fun_prop) (by fun_prop)
+      filter_upwards [h_tt] using by simp [Prod.tendsto_iff]
     · apply EventuallyEq.tendsto
       apply Eventually.of_forall
       intro n
