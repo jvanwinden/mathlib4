@@ -35,14 +35,11 @@ abbrev θ : Measure Ω := infinitePi (fun _ ↦ ρ)
 
 -- Abbreviations for spaces and random variables
 abbrev U := (ℕ → V)
-
 abbrev A : Ω → U := id
 abbrev B (n : ℕ) (ω : Ω) : V := ω n
 
 -- μ is the sequence of measures which will form the counterexample
 def μ (n : ℕ) : Measure (U × V) := (θ ρ).map (f := fun ω ↦ (A ω, B n ω))
-
--- Register that μ n is a probability measure
 instance (n : ℕ) : IsProbabilityMeasure (μ ρ n) := isProbabilityMeasure_map (by fun_prop)
 
 -- Theorem 1: The sequence n ↦ μ n converges weakly to θ × ρ
