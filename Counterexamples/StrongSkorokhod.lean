@@ -133,9 +133,6 @@ theorem measure_const_of_strong_skorokhod
   -- Setup measurability automation
   have (n : ℕ) : AEMeasurable (B' n) P' := (h_law n).aemeasurable.snd
   have : AEMeasurable B'_lim P' := aemeasurable_of_tendsto_metrizable_ae _ (by fun_prop) h_tt
-  have (n : ℕ) : AEMeasurable (fun ω ↦ A ω n) (θ ρ) := Measurable.aemeasurable (by fun_prop)
-  have (n : ℕ) : AEMeasurable (B n) (θ ρ) := by aesop
-  haveI : IsProbabilityMeasure (map (fun v ↦ (v, v)) ρ) := isProbabilityMeasure_map (by fun_prop)
   -- (A, B n) has the same distribution as (A', B' n)
   have h_id n : IdentDistrib (fun ω ↦ (A ω, B n ω))
       (fun ω' ↦ (A' ω', B' n ω')) (θ ρ) P' :=
@@ -143,73 +140,50 @@ theorem measure_const_of_strong_skorokhod
   -- It suffices to show that ρ × ρ is equal to the diagonal pushforward of ρ
   suffices (ρ.prod ρ) = (ρ.map (fun v ↦ (v, v))) by
     apply @IsZeroOneMeasure.exists_eq_dirac _ _ _ ?_ _ _
-    refine ⟨fun s hs ↦ ?_⟩
-    have : (ρ s) * (ρ s) = ρ s := by
-      rw [← prod_prod, this, map_apply (by fun_prop) (by measurability)]
-      simp
-    rw [or_iff_not_imp_left]
-    exact fun hρ ↦ by simpa [ENNReal.mul_eq_left (hρ) (by aesop)] using this
+    refine .mk fun s hs ↦ or_iff_not_imp_left.mpr (fun hρ ↦ ?_)
+    have := Measure.ext_iff.mp this (s ×ˢ s) (by measurability)
+    rw [map_apply (by fun_prop) (by measurability)] at this
+    simpa [ENNReal.mul_eq_left hρ (by simp)] using this
   -- The law of (B'_lim, B'_lim) is equal to the LHS and the RHS
   -- We will prove this by approximating (B'_lim, B'_lim) in two different ways
   trans P'.map (fun ω' ↦ (B'_lim ω', B'_lim ω'))
-  · symm
-    rw [toProbabilityMeasure_inj ?_ ?_]
-    rotate_left
-    · refine isProbabilityMeasure_map (by fun_prop)
-    · exact prod.instIsProbabilityMeasure ρ ρ
+  · symm; rw [toProbabilityMeasure_inj (isProbabilityMeasure_map (by fun_prop))
+              (prod.instIsProbabilityMeasure ρ ρ)]
     apply tendsto_nhds_unique (l := atTop) (X := ProbabilityMeasure _)
       (f := fun n ↦ ⟨P'.map (fun ω ↦ (B' n ω, B' (n + 1) ω)), ?_⟩)
     rotate_right
     · exact isProbabilityMeasure_map <| by fun_prop
-    · apply TendstoInDistribution.tendsto
-      apply tendstoInDistribution_of_ae_tendsto (by fun_prop) (by fun_prop)
+    · refine (tendstoInDistribution_of_ae_tendsto (by fun_prop) (by fun_prop) ?_).tendsto
       filter_upwards [h_tt] with ω hω
       refine (Prod.tendsto_iff _ _).mpr ⟨hω, ?_⟩
-      exact (Filter.tendsto_add_atTop_iff_nat 1).mpr hω
-    · apply EventuallyEq.tendsto
-      apply Eventually.of_forall
-      intro n
+      exact (tendsto_add_atTop_iff_nat 1).mpr hω
+    · refine EventuallyEq.tendsto <| .of_forall fun n ↦ Subtype.ext <| HasLaw.map_eq ?_
       -- Exploit that A' ω' n = B' n ω almost surely
-      apply Subtype.ext
-      apply HasLaw.map_eq
       apply HasLaw.congr (X := fun ω' ↦ (A' ω' n, A' ω' (n + 1)))
-      · apply IdentDistrib.hasLaw (f := fun ω ↦ (A ω n, A ω (n + 1))) (μ := (θ ρ))
+      · apply IdentDistrib.hasLaw (f := fun ω ↦ (A ω n, A ω (n + 1)))
         · exact (h_id 0).comp (u := fun (u, v) ↦ (u n, u (n + 1))) (by fun_prop)
         apply IndepFun.hasLaw_prod
-        · apply MeasurePreserving.hasLaw
-          apply measurePreserving_eval_infinitePi
-        · apply MeasurePreserving.hasLaw
-          apply measurePreserving_eval_infinitePi
-        apply iIndepFun.indepFun (f := fun n ω ↦ A ω n)
-        · exact ProbabilityTheory.iIndepFun_infinitePi (X := fun n v ↦ v) (by fun_prop)
-        simp
+        · exact MeasurePreserving.hasLaw <| measurePreserving_eval_infinitePi _ _
+        · exact MeasurePreserving.hasLaw <| measurePreserving_eval_infinitePi _ _
+        apply iIndepFun.indepFun (f := fun n ω ↦ A ω n) _ (by simp)
+        exact ProbabilityTheory.iIndepFun_infinitePi (X := fun n v ↦ v) (by fun_prop)
       · have A'_eq_B' n : ∀ᵐ ω' ∂P', A' ω' n = B' n ω' := by
           have := (h_id n).comp (u := fun u ↦ (u.1 n, u.2)) (by fun_prop)
-          apply this.ae_snd (p := fun u ↦ u.1 = u.2) (by measurability)
-          simp
+          exact this.ae_snd (p := fun u ↦ u.1 = u.2) (by measurability) (by simp)
         filter_upwards [A'_eq_B' n, A'_eq_B' (n + 1)] using by aesop
-  · rw [toProbabilityMeasure_inj ?_ ?_]
-    rotate_left
-    · exact isProbabilityMeasure_map <| by fun_prop
-    · exact isProbabilityMeasure_map <| by fun_prop
+  · rw [toProbabilityMeasure_inj (isProbabilityMeasure_map (by fun_prop))
+        (isProbabilityMeasure_map (by fun_prop))]
     apply tendsto_nhds_unique (l := atTop) (X := ProbabilityMeasure _)
       (f := fun n ↦ ⟨P'.map (fun ω ↦ (B' n ω, B' n ω)), ?_⟩)
     rotate_right
     · exact isProbabilityMeasure_map <| by fun_prop
-    · apply TendstoInDistribution.tendsto
-      apply tendstoInDistribution_of_ae_tendsto (by fun_prop) (by fun_prop)
-      filter_upwards [h_tt] using by simp [Prod.tendsto_iff]
-    · apply EventuallyEq.tendsto
-      apply Eventually.of_forall
-      intro n
-      apply Subtype.ext
-      apply HasLaw.map_eq
+    · refine (tendstoInDistribution_of_ae_tendsto (by fun_prop) (by fun_prop) ?_).tendsto
+      simpa [Prod.tendsto_iff]
+    · refine EventuallyEq.tendsto <| .of_forall fun n ↦ Subtype.ext <| HasLaw.map_eq ?_
       have := (h_id n).comp (u := fun (u, v) ↦ (v, v)) (by fun_prop)
       apply this.hasLaw
-      apply HasLaw.fun_comp (Y := fun v ↦ (v, v)) (μ := ρ)
-      · exact ⟨by fun_prop, rfl⟩
-      apply MeasurePreserving.hasLaw
-      apply measurePreserving_eval_infinitePi
+      apply HasLaw.fun_comp (Y := fun v ↦ (v, v)) (μ := ρ) <| .mk (by fun_prop) rfl
+      exact MeasurePreserving.hasLaw <| measurePreserving_eval_infinitePi _ _
 
 end StrongSkorokhod
 
