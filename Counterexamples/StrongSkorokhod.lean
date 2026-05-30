@@ -26,47 +26,6 @@ lemma MeasureTheory.Measure.toProbabilityMeasure_inj {Ω : Type*} [MeasurableSpa
 def MeasureTheory.Measure.toProbabilityMeasure {Ω : Type*} [MeasurableSpace Ω] (μ : Measure Ω)
     [IsProbabilityMeasure μ] : ProbabilityMeasure Ω := ⟨μ, inferInstance⟩
 
-/-- Already in a PR -/
-theorem MeasureTheory.tendstoInDistribution_of_ae_tendsto
-    {E Ω' : Type*} {m' : MeasurableSpace Ω'} {μ' : Measure Ω'} [IsProbabilityMeasure μ']
-    {mE : MeasurableSpace E} {Z : Ω' → E} [TopologicalSpace E]
-    [TopologicalSpace.PseudoMetrizableSpace E] [BorelSpace E]
-    {X : ℕ → Ω' → E} (h : ∀ᵐ ω ∂μ', Tendsto (fun i ↦ X i ω) atTop (nhds (Z ω)))
-    (hX : ∀ (i : ℕ), AEMeasurable (X i) μ') :
-    TendstoInDistribution X atTop Z (fun _ ↦ μ') μ' := by
-  have : AEMeasurable Z μ' := by
-    apply aemeasurable_of_tendsto_metrizable_ae _ hX h
-  apply TendstoInDistribution.mk (by measurability) (by measurability) _
-  rw [ProbabilityMeasure.tendsto_iff_forall_integral_tendsto]
-  intro f
-  obtain ⟨C, hC⟩ := f.bounded
-  simp only [ProbabilityMeasure.coe_mk]
-  rw [MeasureTheory.integral_map (by measurability) (by measurability)]
-  conv in ∫ _, _ ∂_ =>
-    rw [MeasureTheory.integral_map (by measurability) (by measurability)]
-  apply tendsto_integral_filter_of_dominated_convergence (bound := fun _ ↦ ‖f‖)
-  · apply Eventually.of_forall; intro n; apply AEMeasurable.aestronglyMeasurable
-    measurability
-  · exact Eventually.of_forall <| fun _ ↦ .of_forall <| fun _ ↦ by apply f.norm_coe_le_norm
-  · simp
-  filter_upwards [h] with ω hω using (f.continuous.tendsto (Z ω)).comp hω
-
-/-- Already in a PR -/
-theorem hasLaw_infinitePi_eval {ι : Type*} {Ω : ι → Type*} {mΩ : (i : ι) → MeasurableSpace (Ω i)}
-    {μ : (i : ι) → Measure (Ω i)} [∀ i, IsProbabilityMeasure (μ i)] (i : ι) :
-    HasLaw (fun ω ↦ ω i) (μ i) (infinitePi (fun i ↦ μ i)) :=
-  .mk (Measurable.aemeasurable (by measurability)) (infinitePi_map_eval _ i)
-
-/-- Already in a PR -/
-theorem map_infinitePi_infinitePi_of_inj {ι : Type*} {Ω : ι → Type*}
-    {mΩ : (i : ι) → MeasurableSpace (Ω i)} {μ : (i : ι) → Measure (Ω i)}
-    [∀ i, IsProbabilityMeasure (μ i)] {e : ι → ι} (he : Injective e) :
-    (infinitePi μ).map (fun ω i ↦ ω (e i)) = infinitePi (fun i ↦ μ (e i)) := by
-  apply HasLaw.map_eq
-  refine iIndepFun.hasLaw_infinitePi ?_ ?_ <| Measurable.aemeasurable <| by measurability
-  · exact fun _ ↦ by apply hasLaw_infinitePi_eval
-  · have := iIndepFun_infinitePi (P := μ) (X := fun x ω ↦ ω) (by measurability)
-    exact iIndepFun.precomp he this
 
 end Auxiliary
 
@@ -114,6 +73,8 @@ theorem tendsto_μ_θ :
       (fun ω : Ω ↦ ((fun n ↦ ω (n + 1)), ω 0))
       (fun _ ↦ (θ ρ)) (θ ρ) := by
     apply MeasureTheory.tendstoInDistribution_of_ae_tendsto
+    · fun_prop
+    · fun_prop
     · apply Eventually.of_forall
       intro ω
       rw [Prod.tendsto_iff]
@@ -126,7 +87,6 @@ theorem tendsto_μ_θ :
       apply EventuallyEq.tendsto
       apply Eventually.of_forall
       grind
-    · measurability
   convert this.tendsto with n
   · rw [μ, ← map_map (by measurability) (by measurability)]
     congr; symm
@@ -145,7 +105,8 @@ theorem tendsto_μ_θ :
       apply map_infinitePi_infinitePi_of_inj
       intro i j hij
       grind
-    · apply hasLaw_infinitePi_eval (μ := fun _ ↦ ρ)
+    · apply MeasurePreserving.hasLaw
+      apply measurePreserving_eval_infinitePi
     · symm;
       apply ProbabilityTheory.IndepFun.indepFun_process
       · measurability
@@ -153,9 +114,8 @@ theorem tendsto_μ_θ :
       intro S
       let T : Finset ℕ := {0}
       have : (0 ∈ T) := by aesop
-      have := iIndepFun_infinitePi (P := fun (i : ℕ) ↦ ρ) (X := fun _ ω ↦ ω) (by measurability)
-      have := iIndepFun.indepFun_finset {0} (S.image (fun n ↦ n + 1)) (by simp) (this) (by measurability)
-      simp only at this
+      have := iIndepFun_infinitePi (P := fun (i : ℕ) ↦ ρ) (X := fun _ ω ↦ ω) (by fun_prop)
+      have := iIndepFun.indepFun_finset {0} (S.image (fun n ↦ n + 1)) (by simp) (this) (by fun_prop)
       rw [IndepFun_iff_Indep] at ⊢ this
       apply indep_of_indep_of_le_right (indep_of_indep_of_le_left this _)
       · let S' := (S.image (fun n ↦ n + 1))
@@ -217,11 +177,11 @@ theorem measure_const_of_strong_skorokhod
     · exact isProbabilityMeasure_map <| by measurability
     · apply TendstoInDistribution.tendsto
       apply tendstoInDistribution_of_ae_tendsto
+      · fun_prop
+      · fun_prop
       · filter_upwards [h_tt] with ω hω
         refine (Prod.tendsto_iff _ _).mpr ⟨hω, ?_⟩
         exact (Filter.tendsto_add_atTop_iff_nat 1).mpr hω
-      · intro i
-        measurability
     · apply EventuallyEq.tendsto
       apply Eventually.of_forall
       intro n
@@ -232,8 +192,10 @@ theorem measure_const_of_strong_skorokhod
       · apply IdentDistrib.hasLaw (f := fun ω ↦ (A ω n, A ω (n + 1))) (μ := (θ ρ))
         · exact (h_id 0).comp (u := fun (u, v) ↦ (u n, u (n + 1))) (by measurability)
         apply IndepFun.hasLaw_prod
-        · apply hasLaw_infinitePi_eval
-        · apply hasLaw_infinitePi_eval (μ := fun _ ↦ ρ)
+        · apply MeasurePreserving.hasLaw
+          apply measurePreserving_eval_infinitePi
+        · apply MeasurePreserving.hasLaw
+          apply measurePreserving_eval_infinitePi
         apply iIndepFun.indepFun (f := fun n ω ↦ A ω n)
         · apply ProbabilityTheory.iIndepFun_infinitePi (X := fun n v ↦ v)
           measurability
@@ -253,8 +215,9 @@ theorem measure_const_of_strong_skorokhod
     · exact isProbabilityMeasure_map <| by measurability
     · apply TendstoInDistribution.tendsto
       apply tendstoInDistribution_of_ae_tendsto
+      · fun_prop
+      · fun_prop
       · filter_upwards [h_tt] using by simp [Prod.tendsto_iff]
-      · measurability
     · apply EventuallyEq.tendsto
       apply Eventually.of_forall
       intro n
@@ -264,7 +227,8 @@ theorem measure_const_of_strong_skorokhod
       apply this.hasLaw
       apply HasLaw.fun_comp (Y := fun v ↦ (v, v)) (μ := ρ)
       · exact ⟨by measurability, rfl⟩
-      apply hasLaw_infinitePi_eval
+      apply MeasurePreserving.hasLaw
+      apply measurePreserving_eval_infinitePi
 
 end StrongSkorokhod
 
