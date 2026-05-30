@@ -1,3 +1,8 @@
+/-
+Copyright (c) 2026 Joris van Winden. All rights reserved.
+Released under Apache 2.0 license as described in the file LICENSE.
+Authors: Joris van Winden
+-/
 import Mathlib.MeasureTheory.Function.ConvergenceInDistribution
 import Mathlib.MeasureTheory.Measure.RegularityCompacts
 import Mathlib.MeasureTheory.Measure.Typeclasses.ZeroOne
@@ -5,6 +10,29 @@ import Mathlib.Probability.Independence.InfinitePi
 import Mathlib.Probability.Independence.Process.Basic
 import Mathlib.Topology.Compactness.Paracompact
 import Mathlib.Topology.Separation.CompletelyRegular
+
+/-!
+# A formalization of the counterexample to the strong Skorokhod representation 'theorem'
+
+The article [?] purports to provide a stronger version of the Skorokhod representation theorem for
+weakly convergent probability measures. However, the article [?] show that the proof is wrong and
+cannot be repaired, by constructing a simple counterexample which refutes the 'theorem'.
+This file contains a formalization of the counterexample.
+
+The example has the following structure. Given an arbitrary probability measure `ρ` on ℝ, we
+construct a sequence of measures `μ n` and prove the following statements:
+
+- `measure_tendsto`: The sequence of probability measures `μ n` converges weakly.
+- `measure_eq_dirac_of_strong_skorokhod`: If the conclusion of the strong Skorohkod representation
+  holds true for `μ n`, then `ρ` must be a Dirac measure.
+
+By combining the two statements, it follows that the strong Skorokhod representation theorem
+does not hold true for arbitraries measures.
+
+## Tags
+
+Skorokhod representation theorem, probability, weak convergence
+-/
 
 open MeasureTheory ProbabilityTheory Filter Function Measure
 
@@ -38,12 +66,12 @@ abbrev U := (ℕ → V)
 abbrev A : Ω → U := id
 abbrev B (n : ℕ) (ω : Ω) : V := ω n
 
--- μ is the sequence of measures which will form the counterexample
+-- μ is the sequence of measures which forms the counterexample
 def μ (n : ℕ) : Measure (U × V) := (θ ρ).map (f := fun ω ↦ (A ω, B n ω))
 instance (n : ℕ) : IsProbabilityMeasure (μ ρ n) := isProbabilityMeasure_map (by fun_prop)
 
--- Theorem 1: The sequence n ↦ μ n converges weakly to θ × ρ
-theorem tendsto_μ_θ :
+/-- The sequence of measures `μ n` constructed above converges weakly to `θ × ρ` -/
+theorem measure_tendsto :
     letI : TopologicalSpace U := Pi.topologicalSpace
     letI : MeasurableSpace Ω := MeasurableSpace.pi
     Tendsto (fun n ↦ (μ ρ n).toProbabilityMeasure) atTop
@@ -78,10 +106,9 @@ theorem tendsto_μ_θ :
       refine this.comp (φ := fun x ↦ x ⟨0, by simp⟩) (ψ := fun x (i : S) ↦ x ⟨i + 1, by simp⟩) ?_ ?_
       all_goals fun_prop
 
--- Theorem 2: If there exist random variables A' and B' n, such that
--- (A', B' n) has law μ n and B' n converges almost surely,
--- then ρ must be a Dirac measure.
-theorem measure_const_of_strong_skorokhod
+/-- If there exist random variables `A'` and `B' n` for which `(A', B' n)` has
+law `μ n` and `B' n` converges almost surely, then `ρ` must be a Dirac measure. -/
+theorem measure_eq_dirac_of_strong_skorokhod
     {Ω' : Type*} [MeasurableSpace Ω'] {P' : Measure Ω'} [IsProbabilityMeasure P']
     {A' : Ω' → U} {B' : ℕ → Ω' → V} {B'_lim : Ω' → V}
     (h_law : ∀ n, HasLaw (fun ω' ↦ (A' ω', B' n ω')) (μ ρ n) P')
