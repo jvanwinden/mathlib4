@@ -149,16 +149,19 @@ theorem measure_const_of_strong_skorokhod
   trans P'.map (fun ω' ↦ (B'_lim ω', B'_lim ω'))
   · symm; rw [toProbabilityMeasure_inj (isProbabilityMeasure_map (by fun_prop))
               (prod.instIsProbabilityMeasure ρ ρ)]
+    -- Approximate by (B' n, B' (n + 1)) to get the the product measure as a limit
     apply tendsto_nhds_unique (l := atTop) (X := ProbabilityMeasure _)
       (f := fun n ↦ ⟨P'.map (fun ω ↦ (B' n ω, B' (n + 1) ω)), ?_⟩)
     rotate_right
     · exact isProbabilityMeasure_map <| by fun_prop
-    · refine (tendstoInDistribution_of_ae_tendsto (by fun_prop) (by fun_prop) ?_).tendsto
+    · -- a.s. convergence of B' n implies convergence in distribution of (B' n, B' (n + 1))
+      refine (tendstoInDistribution_of_ae_tendsto (by fun_prop) (by fun_prop) ?_).tendsto
       filter_upwards [h_tt] with ω hω
       refine (Prod.tendsto_iff _ _).mpr ⟨hω, ?_⟩
       exact (tendsto_add_atTop_iff_nat 1).mpr hω
-    · refine EventuallyEq.tendsto <| .of_forall fun n ↦ Subtype.ext <| HasLaw.map_eq ?_
-      -- Exploit that A' ω' n = B' n ω almost surely
+    · -- Since B' n ω = A' ω' n almost surely and the components of A' ω' n are independent,
+      -- the distribution of (B' n, B' (n + 1)) is given by ρ × ρ for every n.
+      refine EventuallyEq.tendsto <| .of_forall fun n ↦ Subtype.ext <| HasLaw.map_eq ?_
       apply HasLaw.congr (X := fun ω' ↦ (A' ω' n, A' ω' (n + 1)))
       · apply IdentDistrib.hasLaw (f := fun ω ↦ (A ω n, A ω (n + 1)))
         · exact (h_id 0).comp (u := fun (u, v) ↦ (u n, u (n + 1))) (by fun_prop)
@@ -173,13 +176,16 @@ theorem measure_const_of_strong_skorokhod
         filter_upwards [A'_eq_B' n, A'_eq_B' (n + 1)] using by aesop
   · rw [toProbabilityMeasure_inj (isProbabilityMeasure_map (by fun_prop))
         (isProbabilityMeasure_map (by fun_prop))]
+    -- Approximate by (B' n, B' n) to get the diagonal pushforward as a limit
     apply tendsto_nhds_unique (l := atTop) (X := ProbabilityMeasure _)
       (f := fun n ↦ ⟨P'.map (fun ω ↦ (B' n ω, B' n ω)), ?_⟩)
     rotate_right
     · exact isProbabilityMeasure_map <| by fun_prop
-    · refine (tendstoInDistribution_of_ae_tendsto (by fun_prop) (by fun_prop) ?_).tendsto
+    · -- a.s. convergence of B' n implies convergence in distribution of (B' n, B' n)
+      refine (tendstoInDistribution_of_ae_tendsto (by fun_prop) (by fun_prop) ?_).tendsto
       simpa [Prod.tendsto_iff]
-    · refine EventuallyEq.tendsto <| .of_forall fun n ↦ Subtype.ext <| HasLaw.map_eq ?_
+    · -- For every n, the law of (B' n, B' n) is the diagonal pushforward of ρ
+      refine EventuallyEq.tendsto <| .of_forall fun n ↦ Subtype.ext <| HasLaw.map_eq ?_
       have := (h_id n).comp (u := fun (u, v) ↦ (v, v)) (by fun_prop)
       apply this.hasLaw
       apply HasLaw.fun_comp (Y := fun v ↦ (v, v)) (μ := ρ) <| .mk (by fun_prop) rfl
