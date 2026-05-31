@@ -15,7 +15,7 @@ import Mathlib.Topology.Separation.CompletelyRegular
 # A formalization of the counterexample to the strong Skorokhod representation 'theorem'
 
 The article [?] purports to provide a stronger version of the Skorokhod representation theorem for
-weakly convergent probability measures. However, the article [?] show that the proof is wrong and
+weakly convergent probability measures. However, the article [?] shows that the proof is wrong and
 cannot be repaired, by constructing a simple counterexample which refutes the 'theorem'.
 This file contains a formalization of the counterexample.
 
