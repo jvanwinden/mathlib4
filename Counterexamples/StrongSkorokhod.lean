@@ -34,7 +34,7 @@ does not hold true for arbitraries measures.
 Skorokhod representation theorem, probability, weak convergence
 -/
 
-open MeasureTheory ProbabilityTheory Filter Function Measure
+open MeasureTheory ProbabilityTheory Filter Function Measure Topology
 
 noncomputable section
 
@@ -58,13 +58,13 @@ abbrev V := ℝ
 variable (ρ : Measure V) [IsProbabilityMeasure ρ]
 
 -- θ is the infinite product measure of ρ
-abbrev Ω := (ℕ → V)
+abbrev Ω := ℕ → V
 abbrev θ : Measure Ω := infinitePi (fun _ ↦ ρ)
 
 -- Abbreviations for spaces and random variables
-abbrev U := (ℕ → V)
+abbrev U := ℕ → V
 abbrev A : Ω → U := id
-abbrev B (n : ℕ) (ω : Ω) : V := ω n
+abbrev B n (ω : Ω) := ω n
 
 -- μ is the sequence of measures which forms the counterexample
 def μ (n : ℕ) : Measure (U × V) := (θ ρ).map (f := fun ω ↦ (A ω, B n ω))
@@ -75,34 +75,34 @@ theorem measure_tendsto :
     letI : TopologicalSpace U := Pi.topologicalSpace
     letI : MeasurableSpace Ω := MeasurableSpace.pi
     Tendsto (fun n ↦ (μ ρ n).toProbabilityMeasure) atTop
-    (nhds ((θ ρ).prod ρ).toProbabilityMeasure) := by
+    (𝓝 ((θ ρ).prod ρ).toProbabilityMeasure) := by
   -- Proof sketch:
-  -- T m is a transformation of Ω, which permutes the sequence (B 0, B 1, ...) to
-  -- (B 1, B 2, ..., B (m - 1), B 0, B m, B (m + 1))
-  -- Since T m is measure preserving, (A, B m) ∘ T m has law μ n
-  -- Moreover, (A, B m) ∘ T m converges almost surely to (A', B') = ((B_1, B_2, ...), B_0).
-  -- Thus, μ n converges to the law (A', B'), which is θ × ρ
-  let T m (ω : Ω) : Ω := fun n ↦ ω (if n < m then n + 1 else if n = m then 0 else n)
-  have : TendstoInDistribution (fun n ↦ (fun ω ↦ (A ω, B n ω)) ∘ T n) (atTop)
-      (fun ω : Ω ↦ ((fun n ↦ ω (n + 1)), ω 0)) (fun _ ↦ (θ ρ)) (θ ρ) := by
+  -- t n is a transformation of Ω, which permutes the sequence (B 0, B 1, ...) to
+  -- (B 1, B 2, ..., B (n - 1), B 0, B n, B (n + 1))
+  -- Since t n is measure preserving, (A, B n) ∘ t n has law μ n
+  -- Moreover, (A, B n) ∘ t n converges almost surely to (A', B') = ((B_1, B_2, ...), B_0).
+  -- Thus, μ n converges to the law of (A', B'), which is θ × ρ
+  let t n (ω : Ω) : Ω := fun m ↦ ω (if m < n then m + 1 else if m = n then 0 else m)
+  have : TendstoInDistribution (fun n ↦ (fun ω ↦ (A ω, B n ω)) ∘ t n) atTop
+      (fun ω ↦ ((fun n ↦ ω (n + 1)), ω 0)) (fun _ ↦ θ ρ) (θ ρ) := by
     refine tendstoInDistribution_of_ae_tendsto (by fun_prop) (by fun_prop) <| .of_forall fun ω ↦ ?_
     refine (Prod.tendsto_iff _ _).mpr ⟨?_, ?_⟩
     · refine tendsto_pi_nhds.mpr fun n ↦ EventuallyEq.tendsto ?_
       filter_upwards [eventually_ge_atTop (n + 1)] with m hm using by aesop
-    · exact EventuallyEq.tendsto <| .of_forall <| by grind
+    · convert tendsto_const_nhds using 1; grind
   convert this.tendsto with n
   all_goals symm
   · rw [μ, ← map_map (by fun_prop) (by fun_prop)]
     congr
     refine map_infinitePi_infinitePi_of_inj <| HasLeftInverse.injective ?_
     exact ⟨fun m ↦ if m = 0 then n else if m ≤ n then (m - 1) else m, by grind⟩
-  · apply (IndepFun.hasLaw_prod _ _ _).map_eq
+  · apply HasLaw.map_eq <| IndepFun.hasLaw_prod _ _ _
     · refine .mk (Measurable.aemeasurable <| by fun_prop) ?_
       exact map_infinitePi_infinitePi_of_inj <| fun _ ↦ by grind
     · exact MeasurePreserving.hasLaw <| measurePreserving_eval_infinitePi _ _
     · refine (IndepFun.indepFun_process (by fun_prop) (by fun_prop) <| fun S ↦ ?_).symm
       have := iIndepFun_infinitePi (ι := ℕ) (P := fun _ ↦ ρ) (X := fun _ ω ↦ ω) (by fun_prop)
-      have := iIndepFun.indepFun_finset {0} (S.image (fun n ↦ n + 1)) (by aesop) this (by fun_prop)
+      have := iIndepFun.indepFun_finset {0} (S.image (fun n ↦ n + 1)) (by simp) this (by fun_prop)
       refine this.comp (φ := fun x ↦ x ⟨0, by simp⟩) (ψ := fun x (i : S) ↦ x ⟨i + 1, by simp⟩) ?_ ?_
       all_goals fun_prop
 
