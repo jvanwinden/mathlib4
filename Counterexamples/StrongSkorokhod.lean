@@ -162,18 +162,17 @@ theorem measure_eq_dirac_of_strong_skorokhod
         (isProbabilityMeasure_map (by fun_prop))]
     -- Approximate by (B' n, B' n) to get the diagonal pushforward as a limit
     apply tendsto_nhds_unique (l := atTop) (X := ProbabilityMeasure _)
-      (f := fun n ↦ ⟨P'.map (fun ω ↦ (B' n ω, B' n ω)), ?_⟩)
+      (f := fun n ↦ ⟨P'.map ((fun v ↦ (v, v)) ∘ B' n), ?_⟩)
     rotate_right
     · exact isProbabilityMeasure_map <| by fun_prop
     · -- a.s. convergence of B' n implies convergence in distribution of (B' n, B' n)
       refine (tendstoInDistribution_of_ae_tendsto (by fun_prop) (by fun_prop) ?_).tendsto
       simpa [Prod.tendsto_iff]
     · -- For every n, the law of (B' n, B' n) is the diagonal pushforward of ρ
-      convert tendsto_const_nhds using 3 with n
-      apply HasLaw.map_eq
-      have := (h_idd n).comp (u := fun (u, v) ↦ (v, v)) (by fun_prop)
-      apply this.hasLaw
-      apply HasLaw.fun_comp (Y := fun v ↦ (v, v)) (μ := ρ) <| .mk (by fun_prop) rfl
+      conv in Measure.map _ _ =>
+        rw [← AEMeasurable.map_map_of_aemeasurable (by fun_prop) (by fun_prop)]
+      convert tendsto_const_nhds using 4 with n
+      apply (h_idd n).comp (u := fun x ↦ x.snd) (by fun_prop) |>.hasLaw _ |>.map_eq
       exact MeasurePreserving.hasLaw <| measurePreserving_eval_infinitePi _ _
 
 end StrongSkorokhod
