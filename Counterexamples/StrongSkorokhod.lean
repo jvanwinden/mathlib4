@@ -109,27 +109,26 @@ theorem measure_tendsto :
 /-- If there exist random variables `A'` and `B' n` for which `(A', B' n)` has
 law `μ n` and `B' n` converges almost surely, then `ρ` must be a Dirac measure. -/
 theorem measure_eq_dirac_of_strong_skorokhod
-    {Ω' : Type*} [MeasurableSpace Ω'] {P' : Measure Ω'} [IsProbabilityMeasure P']
+    {Ω' : Type*} {hmΩ' : MeasurableSpace Ω'} {P' : Measure Ω'} [IsProbabilityMeasure P']
     {A' : Ω' → U} {B' : ℕ → Ω' → V} {B'_lim : Ω' → V}
     (h_law : ∀ n, HasLaw (fun ω' ↦ (A' ω', B' n ω')) (μ ρ n) P')
-    (h_tt : ∀ᵐ ω' ∂P', Tendsto (fun n ↦ B' n ω') atTop (nhds (B'_lim ω'))) :
-    ∃ x : V, ρ = dirac x := by
-  -- Setup measurability automation
-  have (n : ℕ) : AEMeasurable (B' n) P' := (h_law n).aemeasurable.snd
-  have : AEMeasurable B'_lim P' := aemeasurable_of_tendsto_metrizable_ae _ (by fun_prop) h_tt
+    (h_tt : ∀ᵐ ω' ∂P', Tendsto (fun n ↦ B' n ω') atTop (𝓝 (B'_lim ω'))) :
+    ∃ x, ρ = dirac x := by
+  -- Setup for measurability automation
+  have (n : ℕ) := (h_law n).aemeasurable.snd
+  have := aemeasurable_of_tendsto_metrizable_ae _ (by fun_prop) h_tt
   -- (A, B n) has the same distribution as (A', B' n)
-  have h_id n : IdentDistrib (fun ω ↦ (A ω, B n ω))
-      (fun ω' ↦ (A' ω', B' n ω')) (θ ρ) P' :=
+  have h_idd n : IdentDistrib (fun ω ↦ (A ω, B n ω)) (fun ω' ↦ (A' ω', B' n ω')) (θ ρ) P' :=
     HasLaw.identDistrib (HasLaw.mk (by fun_prop) (by aesop)) (h_law n)
   -- It suffices to show that ρ × ρ is equal to the diagonal pushforward of ρ
   suffices (ρ.prod ρ) = (ρ.map (fun v ↦ (v, v))) by
     apply @IsZeroOneMeasure.exists_eq_dirac _ _ _ ?_ _ _
-    refine .mk fun s hs ↦ or_iff_not_imp_left.mpr (fun hρ ↦ ?_)
+    refine .mk fun s hs₁ ↦ or_iff_not_imp_left.mpr <| fun hs₂ ↦ ?_
     have := Measure.ext_iff.mp this (s ×ˢ s) (by measurability)
     rw [map_apply (by fun_prop) (by measurability)] at this
-    simpa [ENNReal.mul_eq_left hρ (by simp)] using this
+    simpa [ENNReal.mul_eq_left hs₂ (by simp)] using this
   -- The law of (B'_lim, B'_lim) is equal to the LHS and the RHS
-  -- We will prove this by approximating (B'_lim, B'_lim) in two different ways
+  -- We will prove this by approximating (B'_lim, B'_lim) in two different ways (see below)
   trans P'.map (fun ω' ↦ (B'_lim ω', B'_lim ω'))
   · symm; rw [toProbabilityMeasure_inj (isProbabilityMeasure_map (by fun_prop))
               (prod.instIsProbabilityMeasure ρ ρ)]
@@ -145,18 +144,19 @@ theorem measure_eq_dirac_of_strong_skorokhod
       exact (tendsto_add_atTop_iff_nat 1).mpr hω
     · -- Since B' n ω = A' ω' n almost surely and the components of A' ω' n are independent,
       -- the distribution of (B' n, B' (n + 1)) is given by ρ × ρ for every n.
-      refine EventuallyEq.tendsto <| .of_forall fun n ↦ Subtype.ext <| HasLaw.map_eq ?_
-      apply HasLaw.congr (X := fun ω' ↦ (A' ω' n, A' ω' (n + 1)))
-      · apply IdentDistrib.hasLaw (f := fun ω ↦ (A ω n, A ω (n + 1)))
-        · exact (h_id 0).comp (u := fun (u, v) ↦ (u n, u (n + 1))) (by fun_prop)
+      convert tendsto_const_nhds using 3 with n
+      rw [map_congr (g := fun ω' ↦ (A' ω' n, A' ω' (n + 1)))]
+      · -- TODO: turn this into a lemma?
+        apply HasLaw.map_eq
+        apply IdentDistrib.hasLaw (f := fun ω ↦ (A ω n, A ω (n + 1)))
+        · exact (h_idd 0).comp (u := fun (u, v) ↦ (u n, u (n + 1))) (by fun_prop)
         apply IndepFun.hasLaw_prod
         · exact MeasurePreserving.hasLaw <| measurePreserving_eval_infinitePi _ _
         · exact MeasurePreserving.hasLaw <| measurePreserving_eval_infinitePi _ _
         apply iIndepFun.indepFun (f := fun n ω ↦ A ω n) _ (by simp)
-        exact ProbabilityTheory.iIndepFun_infinitePi (X := fun n v ↦ v) (by fun_prop)
+        exact iIndepFun_infinitePi (X := fun n v ↦ v) (by fun_prop)
       · have A'_eq_B' n : ∀ᵐ ω' ∂P', A' ω' n = B' n ω' := by
-          have := (h_id n).comp (u := fun u ↦ (u.1 n, u.2)) (by fun_prop)
-          exact this.ae_snd (p := fun u ↦ u.1 = u.2) (by measurability) (by simp)
+          simpa using (h_idd n).ae_snd (p := fun (A, B) ↦ A n = B) (by measurability)
         filter_upwards [A'_eq_B' n, A'_eq_B' (n + 1)] using by aesop
   · rw [toProbabilityMeasure_inj (isProbabilityMeasure_map (by fun_prop))
         (isProbabilityMeasure_map (by fun_prop))]
@@ -169,11 +169,10 @@ theorem measure_eq_dirac_of_strong_skorokhod
       refine (tendstoInDistribution_of_ae_tendsto (by fun_prop) (by fun_prop) ?_).tendsto
       simpa [Prod.tendsto_iff]
     · -- For every n, the law of (B' n, B' n) is the diagonal pushforward of ρ
-      refine EventuallyEq.tendsto <| .of_forall fun n ↦ Subtype.ext <| HasLaw.map_eq ?_
-      have := (h_id n).comp (u := fun (u, v) ↦ (v, v)) (by fun_prop)
-      apply this.hasLaw
-      apply HasLaw.fun_comp (Y := fun v ↦ (v, v)) (μ := ρ) <| .mk (by fun_prop) rfl
-      exact MeasurePreserving.hasLaw <| measurePreserving_eval_infinitePi _ _
+      convert tendsto_const_nhds using 3 with n
+      have : IdentDistrib (B' n) (id) P' ρ := by
+        sorry
+      exact (this.comp (u := fun v ↦ (v, v)) (by fun_prop)).map_eq
 
 end StrongSkorokhod
 
