@@ -170,9 +170,11 @@ theorem measure_eq_dirac_of_strong_skorokhod
       simpa [Prod.tendsto_iff]
     · -- For every n, the law of (B' n, B' n) is the diagonal pushforward of ρ
       convert tendsto_const_nhds using 3 with n
-      have : IdentDistrib (B' n) (id) P' ρ := by
-        sorry
-      exact (this.comp (u := fun v ↦ (v, v)) (by fun_prop)).map_eq
+      apply HasLaw.map_eq
+      have := (h_idd n).comp (u := fun (u, v) ↦ (v, v)) (by fun_prop)
+      apply this.hasLaw
+      apply HasLaw.fun_comp (Y := fun v ↦ (v, v)) (μ := ρ) <| .mk (by fun_prop) rfl
+      exact MeasurePreserving.hasLaw <| measurePreserving_eval_infinitePi _ _
 
 end StrongSkorokhod
 
