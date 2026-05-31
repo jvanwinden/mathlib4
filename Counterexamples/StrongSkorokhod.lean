@@ -146,9 +146,7 @@ theorem measure_eq_dirac_of_strong_skorokhod
       -- the distribution of (B' n, B' (n + 1)) is given by ρ × ρ for every n.
       convert tendsto_const_nhds using 3 with n
       rw [map_congr (g := fun ω' ↦ (A' ω' n, A' ω' (n + 1)))]
-      · -- TODO: turn this into a lemma?
-        apply HasLaw.map_eq
-        apply IdentDistrib.hasLaw (f := fun ω ↦ (A ω n, A ω (n + 1)))
+      · refine IdentDistrib.hasLaw (μ := θ ρ) (f := fun ω ↦ (A ω n, A ω (n + 1))) ?_ ?_ |>.map_eq
         · exact (h_idd 0).comp (u := fun (u, v) ↦ (u n, u (n + 1))) (by fun_prop)
         apply IndepFun.hasLaw_prod
         · exact MeasurePreserving.hasLaw <| measurePreserving_eval_infinitePi _ _
