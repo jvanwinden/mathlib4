@@ -14,10 +14,10 @@ import Mathlib.Topology.Separation.CompletelyRegular
 /-!
 # A formalization of the counterexample to the strong Skorokhod representation 'theorem'
 
-The article [?] purports to provide a stronger version of the Skorokhod representation theorem for
-weakly convergent probability measures. However, the article [?] shows that the proof is wrong and
-cannot be repaired, by constructing a simple counterexample which refutes the 'theorem'.
-This file contains a formalization of the counterexample.
+The article [brzezniak_2018] purports to provide a stronger version of the Skorokhod representation
+theorem for weakly convergent probability measures. However, the article [ondrejat_seidler_2025]
+shows that the proof is wrong and cannot be repaired, by constructing a simple counterexample which
+refutes the 'theorem'. This file contains a formalization of the counterexample.
 
 The example has the following structure. Given an arbitrary probability measure `ρ` on ℝ, we
 construct a sequence of measures `μ n` and prove the following statements:
@@ -96,10 +96,12 @@ theorem measure_tendsto :
     congr
     refine map_infinitePi_infinitePi_of_inj <| HasLeftInverse.injective ?_
     exact ⟨fun m ↦ if m = 0 then n else if m ≤ n then (m - 1) else m, by grind⟩
-  · apply HasLaw.map_eq <| IndepFun.hasLaw_prod _ _ _
-    · refine .mk (Measurable.aemeasurable <| by fun_prop) ?_
-      exact map_infinitePi_infinitePi_of_inj <| fun _ ↦ by grind
-    · exact MeasurePreserving.hasLaw <| measurePreserving_eval_infinitePi _ _
+  · rw [IndepFun.map_prod_eq_prod_map_map]
+    · congr
+      · exact map_infinitePi_infinitePi_of_inj <| fun _ ↦ by grind
+      · apply infinitePi_map_eval
+    · exact Measurable.aemeasurable <| by fun_prop
+    · exact Measurable.aemeasurable <| by fun_prop
     · refine (IndepFun.indepFun_process (by fun_prop) (by fun_prop) <| fun S ↦ ?_).symm
       have := iIndepFun_infinitePi (ι := ℕ) (P := fun _ ↦ ρ) (X := fun _ ω ↦ ω) (by fun_prop)
       have := iIndepFun.indepFun_finset {0} (S.image (fun n ↦ n + 1)) (by simp) this (by fun_prop)
@@ -148,11 +150,7 @@ theorem measure_eq_dirac_of_strong_skorokhod
       rw [map_congr (g := fun ω' ↦ (A' ω' n, A' ω' (n + 1)))]
       · refine IdentDistrib.hasLaw (μ := θ ρ) (f := fun ω ↦ (A ω n, A ω (n + 1))) ?_ ?_ |>.map_eq
         · exact (h_idd 0).comp (u := fun (u, v) ↦ (u n, u (n + 1))) (by fun_prop)
-        apply IndepFun.hasLaw_prod
-        · exact MeasurePreserving.hasLaw <| measurePreserving_eval_infinitePi _ _
-        · exact MeasurePreserving.hasLaw <| measurePreserving_eval_infinitePi _ _
-        apply iIndepFun.indepFun (f := fun n ω ↦ A ω n) _ (by simp)
-        exact iIndepFun_infinitePi (X := fun n v ↦ v) (by fun_prop)
+        exact .mk (by fun_prop) <| infinitePi_map_eval_prod (by simp)
       · have A'_eq_B' n : ∀ᵐ ω' ∂P', A' ω' n = B' n ω' := by
           simpa using (h_idd n).ae_snd (p := fun (A, B) ↦ A n = B) (by measurability)
         filter_upwards [A'_eq_B' n, A'_eq_B' (n + 1)] using by aesop
